@@ -1,0 +1,24 @@
+# Xcode
+ios/*.xcodeproj
+ios/*.xcworkspace
+ios/DerivedData/
+ios/Config/Local.xcconfig
+*.xcuserstate
+xcuserdata/
+.build/
+.swiftpm/
+
+# Web
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+
+# Supabase
+supabase/.temp/
+supabase/.branches/
+
+# OS
+.DS_Store
+Thumbs.db

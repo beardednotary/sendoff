@@ -1,0 +1,86 @@
+name: Sendoff
+options:
+  bundleIdPrefix: com.dahvio
+  deploymentTarget:
+    iOS: "17.0"
+  xcodeVersion: "16.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+
+configFiles:
+  Debug: Config/Local.xcconfig
+  Release: Config/Local.xcconfig
+
+settings:
+  base:
+    SWIFT_VERSION: "5.10"
+    DEVELOPMENT_TEAM: ""           # set in Xcode > Signing, or in Config/Local.xcconfig
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_STRICT_CONCURRENCY: minimal
+
+packages:
+  Supabase:
+    url: https://github.com/supabase/supabase-swift
+    from: "2.0.0"
+
+targets:
+  Sendoff:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sendoff
+    dependencies:
+      - package: Supabase
+        product: Supabase
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dahvio.sendoff
+        INFOPLIST_KEY_CFBundleDisplayName: Sendoff
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
+        INFOPLIST_KEY_NSCameraUsageDescription: "Sendoff uses the camera so you can add a photo or a short video."
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: "Sendoff uses the microphone so you can record a voice note."
+        INFOPLIST_KEY_NSPhotoLibraryUsageDescription: "Sendoff lets you pick photos from your library to add to a Sendoff."
+        INFOPLIST_KEY_NSAppleMusicUsageDescription: "Sendoff can play a song from your Apple Music library during the reveal."
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        CODE_SIGN_ENTITLEMENTS: Sendoff/Sendoff.entitlements
+    entitlements:
+      path: Sendoff/Sendoff.entitlements
+      properties:
+        com.apple.developer.associated-domains:
+          - applinks:sendoff.app
+          - appclips:sendoff.app
+    info:
+      path: Sendoff/Info.plist
+      properties:
+        CFBundleURLTypes:
+          - CFBundleURLSchemes: [sendoff]
+        UIBackgroundModes: [audio]
+        ITSAppUsesNonExemptEncryption: false
+        SupabaseURL: $(SUPABASE_URL)
+        SupabaseAnonKey: $(SUPABASE_ANON_KEY)
+
+  SendoffTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: SendoffTests
+    dependencies:
+      - target: Sendoff
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dahvio.sendoff.tests
+
+schemes:
+  Sendoff:
+    build:
+      targets:
+        Sendoff: all
+        SendoffTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets: [SendoffTests]

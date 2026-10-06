@@ -1,0 +1,4 @@
+// Copy to Local.xcconfig (gitignored) and fill in. Values flow into Info.plist.
+SUPABASE_URL = https:/$()/your-project.supabase.co
+SUPABASE_ANON_KEY = your-anon-key
+DEVELOPMENT_TEAM = YOURTEAMID
