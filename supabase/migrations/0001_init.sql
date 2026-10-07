@@ -191,8 +191,10 @@ begin new.updated_at = now(); return new; end $$;
 create trigger sendoffs_updated before update on sendoffs for each row execute function set_updated_at();
 create trigger contributions_updated before update on contributions for each row execute function set_updated_at();
 
--- In Review mode new contributions start pending.
-create or replace function apply_moderation_default() returns trigger language plpgsql as $$
+-- In Review mode new contributions start pending. Security definer: the contributor's own RLS
+-- cannot see the parent sendoff.
+create or replace function apply_moderation_default() returns trigger
+language plpgsql security definer set search_path = public as $$
 declare m moderation_mode;
 begin
   select moderation into m from sendoffs where id = new.sendoff_id;
@@ -203,20 +205,33 @@ end $$;
 create trigger contributions_moderation before insert on contributions
   for each row execute function apply_moderation_default();
 
+-- The caller's org and role, read without RLS so policies on profiles do not recurse.
+create or replace function my_org_id() returns uuid language sql stable security definer set search_path = public as $$
+  select org_id from profiles where id = auth.uid()
+$$;
+create or replace function my_org_role() returns text language sql stable security definer set search_path = public as $$
+  select org_role from profiles where id = auth.uid()
+$$;
+
+-- Is the sendoff still collecting? Contributors cannot read sendoffs, so policies ask this instead.
+create or replace function is_collecting(s uuid) returns boolean language sql stable security definer set search_path = public as $$
+  select exists (select 1 from sendoffs where id = s and state = 'collecting')
+$$;
+
 -- Is the current user the organizer of a sendoff?
-create or replace function is_organizer(s uuid) returns boolean language sql stable security definer as $$
+create or replace function is_organizer(s uuid) returns boolean language sql stable security definer set search_path = public as $$
   select exists (select 1 from sendoffs where id = s and organizer_id = auth.uid())
 $$;
 
 -- Is the current user the recipient and is the sendoff open?
-create or replace function is_open_recipient(s uuid) returns boolean language sql stable security definer as $$
+create or replace function is_open_recipient(s uuid) returns boolean language sql stable security definer set search_path = public as $$
   select exists (
     select 1 from sendoffs where id = s and recipient_user_id = auth.uid() and state = 'open'
   )
 $$;
 
 -- Has the current user contributed to this sendoff?
-create or replace function has_contributed(s uuid) returns boolean language sql stable security definer as $$
+create or replace function has_contributed(s uuid) returns boolean language sql stable security definer set search_path = public as $$
   select exists (select 1 from contributions where sendoff_id = s and author_id = auth.uid())
 $$;
 
@@ -225,7 +240,7 @@ create or replace function sendoff_reveal(p_slug text, p_key text)
 returns table (id uuid, recipient_name text, occasion occasion, from_line text, cover_message text,
                theme_id text, music_track_id text, state sendoff_state, opens_at timestamptz,
                organizer_name text)
-language sql stable security definer as $$
+language sql stable security definer set search_path = public as $$
   select s.id, s.recipient_name, s.occasion, s.from_line, s.cover_message, s.theme_id,
          s.music_track_id, s.state, s.opens_at, p.display_name
   from sendoffs s join profiles p on p.id = s.organizer_id
@@ -235,7 +250,7 @@ $$;
 -- Approved entries for an open sendoff, keyed by the recipient link. Returns nothing before open.
 create or replace function reveal_contributions(p_slug text, p_key text)
 returns setof contributions
-language sql stable security definer as $$
+language sql stable security definer set search_path = public as $$
   select c.* from contributions c
   join sendoffs s on s.id = c.sendoff_id
   where s.slug = p_slug and s.recipient_key = p_key and s.state = 'open' and c.status = 'approved'
@@ -246,7 +261,7 @@ $$;
 create or replace function sendoff_public(p_slug text, p_token text)
 returns table (id uuid, recipient_name text, occasion occasion, from_line text,
                theme_id text, closes_at timestamptz, state sendoff_state, organizer_name text)
-language sql stable security definer as $$
+language sql stable security definer set search_path = public as $$
   select s.id, s.recipient_name, s.occasion, s.from_line, s.theme_id, s.closes_at, s.state,
          p.display_name
   from sendoffs s join profiles p on p.id = s.organizer_id
@@ -272,17 +287,13 @@ create policy "music readable" on music_tracks for select using (true);
 
 -- Profiles: you can see yourself and members of your org
 create policy "own profile" on profiles for select using (
-  id = auth.uid() or (org_id is not null and org_id = (select org_id from profiles where id = auth.uid()))
+  id = auth.uid() or (org_id is not null and org_id = my_org_id())
 );
 create policy "update own profile" on profiles for update using (id = auth.uid());
 
 -- Orgs: members can read, admins can update
-create policy "org members read" on orgs for select using (
-  id = (select org_id from profiles where id = auth.uid())
-);
-create policy "org admins update" on orgs for update using (
-  id = (select org_id from profiles where id = auth.uid() and org_role = 'admin')
-);
+create policy "org members read" on orgs for select using (id = my_org_id());
+create policy "org admins update" on orgs for update using (id = my_org_id() and my_org_role() = 'admin');
 
 -- Sendoffs
 create policy "organizer full access" on sendoffs for all
@@ -290,7 +301,7 @@ create policy "organizer full access" on sendoffs for all
 create policy "recipient reads own" on sendoffs for select
   using (recipient_user_id = auth.uid());
 create policy "org admins read org sendoffs" on sendoffs for select
-  using (org_id is not null and org_id = (select org_id from profiles where id = auth.uid() and org_role = 'admin'));
+  using (org_id is not null and org_id = my_org_id() and my_org_role() = 'admin');
 
 -- Contributions: THE privacy rule
 create policy "contributions select" on contributions for select using (
@@ -300,12 +311,10 @@ create policy "contributions select" on contributions for select using (
   or (shared_with_group and status = 'approved' and has_contributed(sendoff_id))
 );
 create policy "contributions insert" on contributions for insert with check (
-  author_id = auth.uid()
-  and exists (select 1 from sendoffs s where s.id = sendoff_id and s.state = 'collecting')
+  author_id = auth.uid() and is_collecting(sendoff_id)
 );
 create policy "contributions update by author" on contributions for update using (
-  author_id = auth.uid()
-  and exists (select 1 from sendoffs s where s.id = sendoff_id and s.state = 'collecting')
+  author_id = auth.uid() and is_collecting(sendoff_id)
 );
 create policy "contributions update by organizer" on contributions for update using (is_organizer(sendoff_id));
 create policy "contributions delete by organizer" on contributions for delete using (is_organizer(sendoff_id));
@@ -324,7 +333,7 @@ create policy "media delete" on media for delete using (
 
 -- Entitlements: read your own or your org's
 create policy "entitlements read" on entitlements for select using (
-  user_id = auth.uid() or org_id = (select org_id from profiles where id = auth.uid())
+  user_id = auth.uid() or (org_id is not null and org_id = my_org_id())
 );
 
 -- Invites: organizer only

@@ -120,6 +120,12 @@ See `supabase/migrations/0001_init.sql` for the authoritative schema. Summary:
 - `contributions` **update**: author (until `sealed`) or organizer.
 - `media`: inherits from its contribution via a join policy; files are served by signed URL only.
 
+Two rules of thumb that `supabase/tests/rules_test.sql` enforces: a policy or trigger that needs
+to read a table the caller cannot see (a contributor reading `sendoffs`, a trigger counting every
+entry) goes through a `security definer` helper (`is_collecting`, `is_organizer`, `my_org_id`,
+`can_upload_to`), never a bare subquery; and a policy never queries its own table, which
+recurses.
+
 ## Web
 
 `web/app` is a small Vite + TypeScript site (no framework), and it is a first-class surface, not

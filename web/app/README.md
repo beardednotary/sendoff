@@ -30,6 +30,7 @@ deploy `supabase/functions/sign-media`.
 ```bash
 npm run build        # typecheck + dist/
 npm run preview
+npm run e2e          # build, serve, run e2e/smoke.mjs in headless Chromium (needs `npx playwright install chromium`)
 ```
 
 ## Deploy

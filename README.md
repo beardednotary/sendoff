@@ -58,10 +58,22 @@ cd web/app && npm install && npm run dev     # http://localhost:5173
 With no `.env.local` it runs on mock data. The landing page links to the three demo Sendoffs:
 the reveal (`/s/maria-r/open?k=demo`), a sealed one with a countdown, the contribute form and
 the printable QR card. `npm run build` typechecks and builds `dist/` for a static host with
-SPA rewrites. Details in `web/app/README.md`.
+SPA rewrites. `npm run e2e` runs the Playwright smoke test (reveal, countdown, contribute with
+edit and photo, QR card) in headless Chromium. Details in `web/app/README.md`.
 
 `web/prototype/` is the static design prototype the site grew out of; the colored dots switch
 themes.
+
+## Check the database rules without a Supabase project
+
+```bash
+supabase/tests/run.sh      # needs postgresql 16 binaries; starts a throwaway cluster
+```
+
+Applies the migrations on plain Postgres (with stubs for the `auth` and `storage` schemas) and
+runs `supabase/tests/rules_test.sql`: contributors see only their own entry, forged inserts are
+refused, the recipient key reveals nothing before the open, Free stops at 10, a credit is spent
+once, review mode never leaks a pending entry. CI runs it on every push.
 
 ## Set up the backend
 

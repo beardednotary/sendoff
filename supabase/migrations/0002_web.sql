@@ -33,7 +33,9 @@ $$;
 -- `on_date` policy opens itself at opens_at even if the organizer forgot to seal it; a `manual`
 -- one opens only when the organizer sets state = 'open' from the app.
 create or replace function sendoff_open(p_slug text, p_key text)
-returns setof sendoff_reveal
+returns table (id uuid, recipient_name text, occasion occasion, from_line text, cover_message text,
+               theme_id text, music_track_id text, state sendoff_state, reveal reveal_policy,
+               opens_at timestamptz, organizer_name text, contributor_count int, plan plan)
 language plpgsql volatile security definer set search_path = public as $$
 begin
   update sendoffs s
@@ -81,23 +83,33 @@ grant execute on function sendoff_reveal(text, text), sendoff_open(text, text), 
 
 create or replace function storage_contribution_id(name text) returns uuid
 language sql immutable as $$
-  select nullif(split_part(name, '/', 2), '')::uuid
+  select case when split_part(name, '/', 2) ~ '^[0-9a-f-]{36}$' then split_part(name, '/', 2)::uuid end
 $$;
 
 create or replace function storage_sendoff_id(name text) returns uuid
 language sql immutable as $$
-  select nullif(split_part(name, '/', 1), '')::uuid
+  select case when split_part(name, '/', 1) ~ '^[0-9a-f-]{36}$' then split_part(name, '/', 1)::uuid end
+$$;
+
+-- Contributors cannot read sendoffs; the storage insert policy asks this instead.
+create or replace function can_upload_to(contribution uuid, sendoff uuid) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from contributions c join sendoffs s on s.id = c.sendoff_id
+    where c.id = contribution and c.author_id = auth.uid() and s.id = sendoff and s.state = 'collecting'
+  )
+$$;
+
+create or replace function can_delete_upload(contribution uuid) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from contributions c join sendoffs s on s.id = c.sendoff_id
+    where c.id = contribution and c.author_id = auth.uid() and s.state = 'collecting'
+  )
 $$;
 
 create policy "uploads: author writes own" on storage.objects for insert to authenticated
-  with check (
-    bucket_id = 'uploads'
-    and exists (
-      select 1 from contributions c join sendoffs s on s.id = c.sendoff_id
-      where c.id = storage_contribution_id(name) and c.author_id = auth.uid()
-        and s.id = storage_sendoff_id(name) and s.state = 'collecting'
-    )
-  );
+  with check (bucket_id = 'uploads' and can_upload_to(storage_contribution_id(name), storage_sendoff_id(name)));
 
 create policy "uploads: author reads own" on storage.objects for select to authenticated
   using (
@@ -106,13 +118,7 @@ create policy "uploads: author reads own" on storage.objects for select to authe
   );
 
 create policy "uploads: author deletes own" on storage.objects for delete to authenticated
-  using (
-    bucket_id = 'uploads'
-    and exists (
-      select 1 from contributions c join sendoffs s on s.id = c.sendoff_id
-      where c.id = storage_contribution_id(name) and c.author_id = auth.uid() and s.state = 'collecting'
-    )
-  );
+  using (bucket_id = 'uploads' and can_delete_upload(storage_contribution_id(name)));
 
 create policy "uploads: organizer reads" on storage.objects for select to authenticated
   using (bucket_id in ('uploads', 'processed') and is_organizer(storage_sendoff_id(name)));

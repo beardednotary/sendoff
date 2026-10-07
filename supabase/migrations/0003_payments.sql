@@ -73,8 +73,9 @@ grant execute on function redeem_entitlement(uuid, uuid) to authenticated;
 -- Enforce the entry limit at insert
 -- ---------------------------------------------------------------------------
 -- Hidden entries do not count, so the organizer can make room by hiding without paying.
+-- Security definer: it counts every entry, not just the ones the inserting contributor can see.
 create or replace function enforce_contributor_limit() returns trigger
-language plpgsql as $$
+language plpgsql security definer set search_path = public as $$
 declare lim int; n int;
 begin
   select contributor_limit into lim from sendoffs where id = new.sendoff_id;
