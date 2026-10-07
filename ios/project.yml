@@ -83,6 +83,7 @@ schemes:
         SendoffTests: [test]
     run:
       config: Debug
+      storeKitConfiguration: Sendoff.storekit
     test:
       config: Debug
       targets: [SendoffTests]

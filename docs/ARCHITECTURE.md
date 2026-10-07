@@ -74,7 +74,18 @@ URL for people without the app. The web page is the fallback for everything else
 
 ### Payments
 
-- iOS: StoreKit 2. Products `sendoff.single`, `sendoff.plus`, `theme.{id}`.
+- iOS: StoreKit 2 (`Services/Purchases.swift`). Consumables `sendoff.single`, `sendoff.plus`,
+  `sendoff.pack5`, `sendoff.pack10`; non-consumables `theme.{id}`. A finished consumable is
+  recorded as credits in `entitlements` (one row per credit, `external_id` = transaction id,
+  unique) *before* `finish()`, so a crash cannot lose it. `redeem_entitlement()` spends a credit
+  on a Sendoff: raises `plan` and `contributor_limit`, never lowers them. The paywall
+  (`Features/Paywall`) appears on the organizer's dashboard after entries arrive, never before.
+- Limits are enforced in the database: a trigger refuses the insert past `contributor_limit`
+  (`sendoff_full`), Free holds 10, hidden entries do not count.
+- `ios/Sendoff.storekit` lets the simulator buy without App Store Connect; the `Sendoff` scheme
+  runs with it. In App Store Connect create the same product ids.
+- v1 trusts the device's StoreKit verification when the client inserts entitlement rows.
+  Server-side verification (App Store Server API, and refund reconciliation) is a follow-up.
 - Web / org: Stripe Checkout via an Edge Function. Entitlements land in `entitlements` and the
   app reads them from the database, so a purchase on either side unlocks on both.
 

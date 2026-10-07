@@ -272,4 +272,46 @@ final class SupabaseStore: SendoffStore {
                                      storagePath: $0.storage_path, appleMusicID: $0.apple_music_id,
                                      premium: $0.premium, mood: $0.mood) }
     }
+
+    // MARK: Payments (mirrors 0003_payments.sql)
+
+    private struct EntitlementRow: Codable {
+        var id: UUID; var product_id: String; var source: String; var external_id: String?
+        var consumed_by: UUID?; var expires_at: Date?; var created_at: Date
+
+        func model() -> Entitlement {
+            Entitlement(id: id, productID: product_id, source: source, externalID: external_id,
+                        consumedBy: consumed_by, expiresAt: expires_at, createdAt: created_at)
+        }
+    }
+
+    func entitlements() async throws -> [Entitlement] {
+        guard let uid = currentUserID else { return [] }
+        let rows: [EntitlementRow] = try await client.from("entitlements").select()
+            .eq("user_id", value: uid).order("created_at").execute().value
+        return rows.map { $0.model() }
+    }
+
+    func recordPurchase(_ product: ProductID, transactionID: String) async throws -> [Entitlement] {
+        guard let uid = currentUserID else { throw StoreError.notAllowed }
+        guard let plan = product.plan, let creditProduct = ProductID.credit(for: plan) else { return [] }
+        struct Insert: Encodable { var user_id: UUID; var product_id: String; var source: String; var external_id: String }
+        let rows = (0..<product.credits).map { i in
+            Insert(user_id: uid, product_id: creditProduct.rawValue, source: "storekit",
+                   external_id: product.credits == 1 ? transactionID : "\(transactionID)#\(i)")
+        }
+        // `external_id` is unique, so replaying a transaction (app relaunch before finish()) is a no-op.
+        try await client.from("entitlements").upsert(rows, onConflict: "external_id", ignoreDuplicates: true).execute()
+        let saved: [EntitlementRow] = try await client.from("entitlements").select()
+            .eq("user_id", value: uid).like("external_id", pattern: "\(transactionID)%").execute().value
+        return saved.map { $0.model() }
+    }
+
+    func redeem(_ entitlementID: UUID, for sendoffID: UUID) async throws -> Sendoff {
+        let rows: [SendoffRow] = try await client
+            .rpc("redeem_entitlement", params: ["p_entitlement": entitlementID.uuidString, "p_sendoff": sendoffID.uuidString])
+            .execute().value
+        guard let row = rows.first else { throw StoreError.noCredit }
+        return row.model(organizerName: currentUserName)
+    }
 }

@@ -10,6 +10,7 @@ struct SendoffDetailView: View {
     @State private var contributions: [Contribution] = []
     @State private var showShare = false
     @State private var showPreview = false
+    @State private var showPaywall = false
     @State private var editMode: EditMode = .inactive
     @State private var confirmOpen = false
 
@@ -83,6 +84,9 @@ struct SendoffDetailView: View {
                 ToolbarItem(placement: .primaryAction) {
                     Menu {
                         Button { showPreview = true } label: { Label("Preview the reveal", systemImage: "envelope.open") }
+                        if s.plan < .plus {
+                            Button { showPaywall = true } label: { Label("Make it something they can keep", systemImage: "seal") }
+                        }
                         if s.state == .collecting {
                             Button { Task { await setState(.sealed) } } label: { Label("Stop collecting and seal", systemImage: "lock") }
                         }
@@ -103,6 +107,9 @@ struct SendoffDetailView: View {
                 }
             }
             .sheet(isPresented: $showShare) { ShareView(sendoff: s) }
+            .sheet(isPresented: $showPaywall) {
+                PaywallView(sendoff: s, entryCount: approved.count) { updated in sendoff = updated }
+            }
             .fullScreenCover(isPresented: $showPreview) {
                 RevealView(sendoff: s, contributions: approved, preview: true)
             }
@@ -152,9 +159,40 @@ struct SendoffDetailView: View {
                         .font(Typeface.caption).foregroundStyle(theme.mutedInkColor)
                 }
             }
+            if s.plan == .free, !contributions.isEmpty {
+                keepBanner(s, theme: theme)
+            }
             Rule()
         }
         .padding(20)
+    }
+
+    /// The paywall, after entries arrive and never before. Free is a real option; this is an offer.
+    private func keepBanner(_ s: Sendoff, theme: SendoffTheme) -> some View {
+        let live = contributions.filter { $0.status != .hidden }.count
+        let full = live >= s.contributorLimit
+        return Button { showPaywall = true } label: {
+            HStack(spacing: 12) {
+                Image(systemName: full ? "tray.full" : "seal")
+                    .font(.system(size: 20))
+                    .foregroundStyle(theme.sealColor)
+                    .frame(width: 28)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(full ? "Free holds \(s.contributorLimit). It's full." : "Make it something they can keep")
+                        .font(Typeface.uiStrong).foregroundStyle(theme.inkColor)
+                    Text(full
+                         ? "Upgrade so more people can add."
+                         : "Free holds \(s.contributorLimit) entries and adds a Sendoff line at the end. \(live) in so far.")
+                        .font(Typeface.caption).foregroundStyle(theme.mutedInkColor)
+                }
+                Spacer()
+                Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(theme.mutedInkColor)
+            }
+            .padding(14)
+            .background(theme.raisedPaperColor, in: RoundedRectangle(cornerRadius: theme.radius + 4))
+            .overlay(RoundedRectangle(cornerRadius: theme.radius + 4).stroke(theme.sealColor.opacity(full ? 0.9 : 0.5)))
+        }
+        .buttonStyle(.pressable)
     }
 
     private func stat(_ value: String, _ label: String?) -> some View {
@@ -237,6 +275,8 @@ struct SendoffDetailView: View {
 }
 
 #Preview {
-    NavigationStack { SendoffDetailView(sendoffID: MockStore.sampleSendoff.id) }
-        .environment(\.store, MockStore())
+    let store = MockStore()
+    return NavigationStack { SendoffDetailView(sendoffID: MockStore.sampleSendoff.id) }
+        .environment(\.store, store)
+        .environment(PurchaseManager(store: store))
 }

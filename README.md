@@ -45,7 +45,8 @@ open Sendoff.xcodeproj
 
 Without Supabase keys the app runs against `MockStore`, an in-memory store seeded with a
 believable retirement Sendoff, so every screen including the reveal is demoable offline.
-Run the `SendoffTests` scheme to check theme contrast and store rules.
+Run the `SendoffTests` scheme to check theme contrast, store rules and payment rules. The
+scheme runs with `Sendoff.storekit`, so the paywall works in the simulator with test purchases.
 
 ## Run the web app
 
@@ -63,7 +64,7 @@ themes.
 
 ## Set up the backend
 
-1. Create a Supabase project. Run `supabase/migrations/0001_init.sql`, then `0002_web.sql`.
+1. Create a Supabase project. Run `supabase/migrations/0001_init.sql`, `0002_web.sql`, `0003_payments.sql`.
 2. Enable anonymous sign-ins and email magic links in Auth settings. Add `https://sendoffapp.com`
    to the redirect URLs.
 3. Deploy the functions: `supabase functions deploy sign-media --no-verify-jwt` and
@@ -82,5 +83,8 @@ The web app is built and tested end to end against the mock (reveal, countdown, 
 with edit and photo attach, QR card). The backend functions and storage policies it needs are
 written but not deployed.
 
-Next: Xcode build, Supabase deploy, stock music, StoreKit 2, App Clip target, Mux adapter and
-transcripts, `TEAMID` in `web/app/public/.well-known/apple-app-site-association`.
+Payments are in: StoreKit 2 purchase manager, paywall after entries arrive, credits and
+redemption in both stores, limits enforced by the database.
+
+Next: Xcode build, Supabase deploy, stock music, App Store Connect products, App Clip target,
+Mux adapter and transcripts, `TEAMID` in `web/app/public/.well-known/apple-app-site-association`.

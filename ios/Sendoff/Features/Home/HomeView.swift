@@ -133,5 +133,6 @@ struct SendoffRow: View {
 }
 
 #Preview {
-    HomeView().environment(\.store, MockStore()).environment(AppRouter())
+    let store = MockStore()
+    return HomeView().environment(\.store, store).environment(AppRouter()).environment(PurchaseManager(store: store))
 }

@@ -30,6 +30,15 @@ protocol SendoffStore: AnyObject, Observable {
 
     // Catalog
     func tracks() async throws -> [MusicTrack]
+
+    // Payments
+    func entitlements() async throws -> [Entitlement]
+    /// Records a finished StoreKit purchase as credits. Idempotent on `transactionID`; a pack
+    /// becomes several single credits.
+    @discardableResult
+    func recordPurchase(_ product: ProductID, transactionID: String) async throws -> [Entitlement]
+    /// Applies a credit to a Sendoff: raises its plan and entry limit, marks the credit consumed.
+    func redeem(_ entitlementID: UUID, for sendoffID: UUID) async throws -> Sendoff
 }
 
 struct SendoffDraft {
@@ -63,13 +72,15 @@ struct ContributionDraft {
 }
 
 enum StoreError: LocalizedError {
-    case notFound, notAllowed, closed, network(String)
+    case notFound, notAllowed, closed, full, noCredit, network(String)
 
     var errorDescription: String? {
         switch self {
         case .notFound: "We couldn't find that Sendoff."
         case .notAllowed: "You don't have access to that."
         case .closed: "This Sendoff is no longer collecting."
+        case .full: "This Sendoff is full. The organizer can make room."
+        case .noCredit: "That credit has already been used."
         case .network(let s): s
         }
     }
@@ -86,6 +97,7 @@ final class MockStore: SendoffStore {
     private(set) var sendoffs: [Sendoff]
     private(set) var contributionsByID: [UUID: [Contribution]]
     private var mine: [UUID: Contribution] = [:]
+    private var grants: [Entitlement] = []
 
     static let me = UUID(uuidString: "00000000-0000-0000-0000-00000000AAAA")!
 
@@ -114,7 +126,7 @@ final class MockStore: SendoffStore {
             themeID: d.themeID, musicTrackID: d.musicTrackID ?? d.occasion.defaultTrack,
             state: .collecting, moderation: d.moderation, reveal: d.reveal,
             closesAt: d.closesAt, opensAt: d.reveal == .onDate ? d.opensAt : nil, openedAt: nil,
-            plan: .single, contributorLimit: 100, createdAt: .now, contributorGoal: d.goal,
+            plan: .free, contributorLimit: Plan.free.entryLimit, createdAt: .now, contributorGoal: d.goal,
             contributeToken: Slug.token(bytes: 16), recipientKey: Slug.token(bytes: 24)
         )
         sendoffs.insert(s, at: 0)
@@ -168,6 +180,8 @@ final class MockStore: SendoffStore {
     func submit(_ d: ContributionDraft, to sendoffID: UUID) async throws -> Contribution {
         guard let s = sendoffs.first(where: { $0.id == sendoffID }) else { throw StoreError.notFound }
         guard s.isCollecting else { throw StoreError.closed }
+        let live = (contributionsByID[sendoffID] ?? []).filter { $0.status != .hidden }.count
+        guard live < s.contributorLimit else { throw StoreError.full }
         let c = Contribution(
             id: UUID(), sendoffID: sendoffID, authorID: UUID(),
             authorName: d.authorName.trimmingCharacters(in: .whitespaces),
@@ -191,6 +205,35 @@ final class MockStore: SendoffStore {
     }
 
     func tracks() async throws -> [MusicTrack] { MockStore.sampleTracks }
+
+    // MARK: Payments
+
+    func entitlements() async throws -> [Entitlement] { grants }
+
+    func recordPurchase(_ product: ProductID, transactionID: String) async throws -> [Entitlement] {
+        let existing = grants.filter { $0.externalID?.hasPrefix(transactionID) == true }
+        if !existing.isEmpty { return existing }
+        guard let plan = product.plan, let creditProduct = ProductID.credit(for: plan) else { return [] }
+        let new = (0..<product.credits).map { i in
+            Entitlement(id: UUID(), productID: creditProduct.rawValue, source: "storekit",
+                        externalID: product.credits == 1 ? transactionID : "\(transactionID)#\(i)",
+                        consumedBy: nil, expiresAt: nil, createdAt: .now)
+        }
+        grants.append(contentsOf: new)
+        return new
+    }
+
+    func redeem(_ entitlementID: UUID, for sendoffID: UUID) async throws -> Sendoff {
+        guard let gi = grants.firstIndex(where: { $0.id == entitlementID }), grants[gi].isAvailable else { throw StoreError.noCredit }
+        guard let si = sendoffs.firstIndex(where: { $0.id == sendoffID }), sendoffs[si].organizerID == currentUserID else { throw StoreError.notFound }
+        guard let plan = grants[gi].product?.plan else { throw StoreError.noCredit }
+        grants[gi].consumedBy = sendoffID
+        if plan > sendoffs[si].plan {
+            sendoffs[si].plan = plan
+            sendoffs[si].contributorLimit = plan.entryLimit
+        }
+        return sendoffs[si]
+    }
 }
 
 extension Contribution {
@@ -255,7 +298,7 @@ extension MockStore {
         themeID: .letterpress, musicTrackID: "bright_strings",
         state: .collecting, moderation: .trust, reveal: .manual,
         closesAt: Date(timeIntervalSinceNow: 86400 * 9), opensAt: nil,
-        openedAt: nil, plan: .single, contributorLimit: 100,
+        openedAt: nil, plan: .free, contributorLimit: Plan.free.entryLimit,
         createdAt: Date(timeIntervalSinceNow: -86400 * 1), contributorGoal: 12,
         contributeToken: "demo", recipientKey: "demo"
     )

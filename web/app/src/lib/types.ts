@@ -115,7 +115,7 @@ export const Limits = {
 } as const;
 
 export class StoreError extends Error {
-  constructor(public code: 'not_found' | 'not_allowed' | 'closed' | 'sealed' | 'network', message: string) {
+  constructor(public code: 'not_found' | 'not_allowed' | 'closed' | 'full' | 'sealed' | 'network', message: string) {
     super(message);
   }
 }
@@ -124,6 +124,7 @@ export const StoreMessages = {
   not_found: "We couldn't find that Sendoff. Check the link you were sent.",
   not_allowed: "This link doesn't open that Sendoff.",
   closed: 'This Sendoff is no longer collecting.',
+  full: "This Sendoff is full. Ask the organizer to make room.",
   sealed: "It's sealed. Not yet.",
   network: "Something didn't go through. Try again in a moment.",
 } as const;

@@ -75,7 +75,11 @@ export class SupabaseStore implements WebStore {
 
   private fail(error: { message: string; code?: string } | null, fallback: StoreError['code'] = 'network'): never {
     console.error(error);
-    throw new StoreError(fallback, StoreMessages[fallback]);
+    // Postgres raises these by name (0003_payments.sql); RLS denials come back as 42501.
+    const code: StoreError['code'] = error?.message?.includes('sendoff_full') ? 'full'
+      : error?.code === '42501' ? 'closed'
+      : fallback;
+    throw new StoreError(code, StoreMessages[code]);
   }
 
   // MARK: Contributor

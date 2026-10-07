@@ -128,8 +128,106 @@ enum RevealPolicy: String, Codable, CaseIterable, Identifiable {
     }
 }
 
-enum Plan: String, Codable {
+enum Plan: String, Codable, Comparable {
     case free, single, plus, org
+
+    var title: String {
+        switch self {
+        case .free: "Free"
+        case .single: "Sendoff"
+        case .plus: "Sendoff Plus"
+        case .org: "Organization"
+        }
+    }
+
+    /// How many entries the envelope holds. Mirrors `plan_entry_limit()` in 0003_payments.sql.
+    var entryLimit: Int {
+        switch self {
+        case .free: 10
+        case .single: 100
+        case .plus, .org: 100_000
+        }
+    }
+
+    var includesPremiumThemes: Bool { self >= .plus }
+    /// Free shows "Made with Sendoff" on the last page.
+    var showsFooter: Bool { self == .free }
+
+    private var rank: Int { Plan.order.firstIndex(of: self) ?? 0 }
+    private static let order: [Plan] = [.free, .single, .plus, .org]
+    static func < (a: Plan, b: Plan) -> Bool { a.rank < b.rank }
+}
+
+// MARK: - Payments
+
+/// App Store product identifiers. Mirrors the StoreKit configuration in `ios/Sendoff.storekit`
+/// and the `product_id` column of `entitlements`.
+enum ProductID: String, CaseIterable, Identifiable {
+    case single = "sendoff.single"          // consumable: one Sendoff
+    case plus = "sendoff.plus"              // consumable: one Sendoff Plus
+    case pack5 = "sendoff.pack5"            // consumable: five Sendoff credits
+    case pack10 = "sendoff.pack10"          // consumable: ten Sendoff credits
+    case themeGoldLeaf = "theme.gold_leaf"  // non-consumable
+    case themeDarkroom = "theme.darkroom"
+    case themeFieldDay = "theme.field_day"
+
+    var id: String { rawValue }
+
+    /// The plan a credit from this product unlocks. Nil for theme add-ons.
+    var plan: Plan? {
+        switch self {
+        case .single, .pack5, .pack10: .single
+        case .plus: .plus
+        case .themeGoldLeaf, .themeDarkroom, .themeFieldDay: nil
+        }
+    }
+
+    /// Credits one purchase yields. Each credit is one `entitlements` row.
+    var credits: Int {
+        switch self {
+        case .pack5: 5
+        case .pack10: 10
+        case .single, .plus: 1
+        case .themeGoldLeaf, .themeDarkroom, .themeFieldDay: 0
+        }
+    }
+
+    var isConsumable: Bool { plan != nil }
+
+    var themeID: ThemeID? {
+        switch self {
+        case .themeGoldLeaf: .goldLeaf
+        case .themeDarkroom: .darkroom
+        case .themeFieldDay: .fieldDay
+        default: nil
+        }
+    }
+
+    static func theme(_ id: ThemeID) -> ProductID? {
+        allCases.first { $0.themeID == id }
+    }
+
+    static func credit(for plan: Plan) -> ProductID? {
+        switch plan {
+        case .single: .single
+        case .plus: .plus
+        case .free, .org: nil
+        }
+    }
+}
+
+/// Something the organizer has paid for. A Sendoff credit is consumed when applied to a Sendoff.
+struct Entitlement: Identifiable, Codable, Hashable {
+    var id: UUID
+    var productID: String
+    var source: String              // "storekit", "stripe", "grant"
+    var externalID: String?         // StoreKit transaction id (packs: "{id}#{n}")
+    var consumedBy: UUID?
+    var expiresAt: Date?
+    var createdAt: Date
+
+    var product: ProductID? { ProductID(rawValue: productID) }
+    var isAvailable: Bool { consumedBy == nil && (expiresAt.map { $0 > .now } ?? true) }
 }
 
 struct Sendoff: Identifiable, Codable, Hashable {
