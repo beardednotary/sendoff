@@ -99,7 +99,7 @@ struct ShareView: View {
                             Text("Recipient's link").font(Typeface.uiStrong).foregroundStyle(theme.inkColor)
                             Text("Different from the one above. Give it to \(sendoff.recipientFirstName) on the day, or print its QR code inside a card. It stays sealed until the reveal.")
                                 .font(Typeface.caption).foregroundStyle(theme.mutedInkColor)
-                            ShareLink(item: sendoff.shareURL.appending(path: "open")) {
+                            ShareLink(item: sendoff.revealURL) {
                                 Label("Share \(sendoff.recipientFirstName)'s link", systemImage: "envelope")
                                     .font(Typeface.uiStrong).foregroundStyle(theme.sealColor)
                             }

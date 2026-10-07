@@ -114,7 +114,8 @@ final class MockStore: SendoffStore {
             themeID: d.themeID, musicTrackID: d.musicTrackID ?? d.occasion.defaultTrack,
             state: .collecting, moderation: d.moderation, reveal: d.reveal,
             closesAt: d.closesAt, opensAt: d.reveal == .onDate ? d.opensAt : nil, openedAt: nil,
-            plan: .single, contributorLimit: 100, createdAt: .now, contributorGoal: d.goal
+            plan: .single, contributorLimit: 100, createdAt: .now, contributorGoal: d.goal,
+            contributeToken: Slug.token(bytes: 16), recipientKey: Slug.token(bytes: 24)
         )
         sendoffs.insert(s, at: 0)
         contributionsByID[s.id] = []
@@ -210,6 +211,11 @@ enum Slug {
         let alphabet = Array("abcdefghjkmnpqrstuvwxyz23456789")
         return String((0..<8).map { _ in alphabet.randomElement()! })
     }
+
+    /// Hex token, same shape as the database default (`encode(gen_random_bytes(n), 'hex')`).
+    static func token(bytes: Int) -> String {
+        (0..<bytes).map { _ in String(format: "%02x", UInt8.random(in: 0...255)) }.joined()
+    }
 }
 
 // MARK: - Sample data
@@ -224,7 +230,8 @@ extension MockStore {
         state: .open, moderation: .trust, reveal: .onDate,
         closesAt: Date(timeIntervalSinceNow: -86400 * 2), opensAt: Date(timeIntervalSinceNow: -3600),
         openedAt: nil, plan: .plus, contributorLimit: 1000,
-        createdAt: Date(timeIntervalSinceNow: -86400 * 20), contributorGoal: 40
+        createdAt: Date(timeIntervalSinceNow: -86400 * 20), contributorGoal: 40,
+        contributeToken: "demo", recipientKey: "demo"
     )
 
     static let sampleSealed: Sendoff = Sendoff(
@@ -236,7 +243,8 @@ extension MockStore {
         state: .sealed, moderation: .review, reveal: .onDate,
         closesAt: Date(timeIntervalSinceNow: 86400 * 3), opensAt: Date(timeIntervalSinceNow: 86400 * 5),
         openedAt: nil, plan: .single, contributorLimit: 100,
-        createdAt: Date(timeIntervalSinceNow: -86400 * 6)
+        createdAt: Date(timeIntervalSinceNow: -86400 * 6),
+        contributeToken: "demo", recipientKey: "demo"
     )
 
     static let sampleCollecting: Sendoff = Sendoff(
@@ -248,7 +256,8 @@ extension MockStore {
         state: .collecting, moderation: .trust, reveal: .manual,
         closesAt: Date(timeIntervalSinceNow: 86400 * 9), opensAt: nil,
         openedAt: nil, plan: .single, contributorLimit: 100,
-        createdAt: Date(timeIntervalSinceNow: -86400 * 1), contributorGoal: 12
+        createdAt: Date(timeIntervalSinceNow: -86400 * 1), contributorGoal: 12,
+        contributeToken: "demo", recipientKey: "demo"
     )
 
     static func sampleContributions(for sendoffID: UUID) -> [Contribution] {

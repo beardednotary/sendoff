@@ -50,8 +50,8 @@ targets:
       path: Sendoff/Sendoff.entitlements
       properties:
         com.apple.developer.associated-domains:
-          - applinks:sendoff.app
-          - appclips:sendoff.app
+          - applinks:$(PUBLIC_HOST)
+          - appclips:$(PUBLIC_HOST)
     info:
       path: Sendoff/Info.plist
       properties:
@@ -59,8 +59,10 @@ targets:
           - CFBundleURLSchemes: [sendoff]
         UIBackgroundModes: [audio]
         ITSAppUsesNonExemptEncryption: false
+        PublicHost: $(PUBLIC_HOST)
         SupabaseURL: $(SUPABASE_URL)
         SupabaseAnonKey: $(SUPABASE_ANON_KEY)
+        MusicBaseURL: $(MUSIC_BASE_URL)
 
   SendoffTests:
     type: bundle.unit-test

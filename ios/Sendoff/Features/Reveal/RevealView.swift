@@ -284,7 +284,7 @@ final class MusicPlayer {
     /// Stock tracks are bundled as `{id}.m4a`; a remote URL is used when the bundle lacks one.
     static func url(for trackID: String) -> URL? {
         if let u = Bundle.main.url(forResource: trackID, withExtension: "m4a") { return u }
-        return URL(string: "https://sendoff.app/music/\(trackID).m4a")
+        return AppConfig.musicBaseURL?.appending(path: "\(trackID).m4a")
     }
 }
 

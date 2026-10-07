@@ -34,8 +34,8 @@ extension EnvironmentValues {
 
 // MARK: - Router
 
-/// Handles `https://sendoff.app/s/{slug}?t={token}` (contribute),
-/// `https://sendoff.app/s/{slug}/open?k={key}` (reveal) and `sendoff://` equivalents.
+/// Handles `https://{PUBLIC_HOST}/s/{slug}?t={token}` (contribute),
+/// `https://{PUBLIC_HOST}/s/{slug}/open?k={key}` (reveal) and `sendoff://` equivalents.
 @Observable
 final class AppRouter {
     enum Destination: Hashable {

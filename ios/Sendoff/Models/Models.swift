@@ -155,8 +155,24 @@ struct Sendoff: Identifiable, Codable, Hashable {
     var createdAt: Date
     /// Organizer's own target, shown as progress on their dashboard. Not a cap.
     var contributorGoal: Int? = nil
+    /// In the shared link as `?t=`. Only the organizer ever holds it; contributors receive it in the URL.
+    var contributeToken: String? = nil
+    /// In the recipient's link as `?k=`. Long and random so it cannot be derived from the slug.
+    var recipientKey: String? = nil
 
-    var shareURL: URL { URL(string: "https://sendoff.app/s/\(slug)")! }
+    /// `https://{host}/s/{slug}?t={token}`: the link everyone who contributes receives.
+    var shareURL: URL {
+        var c = URLComponents(url: AppConfig.publicOrigin.appending(path: "s/\(slug)"), resolvingAgainstBaseURL: false)!
+        if let contributeToken { c.queryItems = [URLQueryItem(name: "t", value: contributeToken)] }
+        return c.url!
+    }
+
+    /// `https://{host}/s/{slug}/open?k={key}`: the recipient's link. Sealed until the reveal.
+    var revealURL: URL {
+        var c = URLComponents(url: AppConfig.publicOrigin.appending(path: "s/\(slug)/open"), resolvingAgainstBaseURL: false)!
+        if let recipientKey { c.queryItems = [URLQueryItem(name: "k", value: recipientKey)] }
+        return c.url!
+    }
 
     var isCollecting: Bool { state == .collecting }
     var isOpen: Bool { state == .open }

@@ -64,6 +64,9 @@ final class SupabaseStore: SendoffStore {
         var contributor_limit: Int
         var contributor_goal: Int?
         var created_at: Date
+        // Only present on rows the organizer reads (RLS "organizer full access").
+        var contribute_token: String?
+        var recipient_key: String?
 
         func model(organizerName: String) -> Sendoff {
             Sendoff(id: id, slug: slug, organizerID: organizer_id, organizerName: organizerName,
@@ -71,7 +74,8 @@ final class SupabaseStore: SendoffStore {
                     fromLine: from_line, coverMessage: cover_message, themeID: theme_id,
                     musicTrackID: music_track_id, state: state, moderation: moderation, reveal: reveal,
                     closesAt: closes_at, opensAt: opens_at, openedAt: opened_at, plan: plan,
-                    contributorLimit: contributor_limit, createdAt: created_at, contributorGoal: contributor_goal)
+                    contributorLimit: contributor_limit, createdAt: created_at, contributorGoal: contributor_goal,
+                    contributeToken: contribute_token, recipientKey: recipient_key)
         }
     }
 

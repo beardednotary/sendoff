@@ -57,7 +57,7 @@ recipients who do have it (library, offline keepsake, exports, Apple Music playb
 
 | Folder | Contents |
 |---|---|
-| `App/` | `SendoffApp` entry, `AppRouter` (deep links `sendoff.app/s/{slug}`), environment wiring |
+| `App/` | `SendoffApp` entry, `AppConfig` (domain, keys from xcconfig), `AppRouter` (deep links `sendoffapp.com/s/{slug}`), environment wiring |
 | `Models/` | `Sendoff`, `Contribution`, `Occasion`, `MusicTrack`, `ModerationMode`, `RevealPolicy` |
 | `Design/` | `SendoffTheme` (data), `ThemeCatalog`, `Typography`, `Motion`, and `Components/` (Seal, Flap, Stamp, Ribbon, Envelope, Waveform) |
 | `Features/` | One folder per flow: `Home`, `Create`, `Contribute`, `Admin`, `Reveal`, `Share` |
@@ -68,7 +68,7 @@ without a backend, which is how the app is demoed before Supabase is configured.
 
 ### Deep links
 
-`https://sendoff.app/s/{slug}` is a universal link. The app opens the contribute flow (or the
+`https://sendoffapp.com/s/{slug}?t={token}` is a universal link. The app opens the contribute flow (or the
 reveal, if the viewer is the recipient and the Sendoff is open). The App Clip handles the same
 URL for people without the app. The web page is the fallback for everything else.
 
@@ -107,13 +107,21 @@ See `supabase/migrations/0001_init.sql` for the authoritative schema. Summary:
 
 ## Web
 
-`web/` is a small Vite + TypeScript site, and it is a first-class surface, not a fallback:
+`web/app` is a small Vite + TypeScript site (no framework), and it is a first-class surface, not
+a fallback. It runs against Supabase, or against an in-memory mock when no keys are set, so the
+design can be reviewed with `npm run dev` and nothing else. See `web/app/README.md`.
 
 | Route | Who | What |
 |---|---|---|
 | `/s/{slug}` | Contributor | Add a note, photos, voice note or video. No account. |
 | `/s/{slug}/open?k={recipient_key}` | Recipient | The sealed envelope. Breaks open at `opens_at`. Music, one entry at a time, keepsake at the end. |
-| `/s/{slug}/qr` | Organizer | Printable QR card for the party, the break room or inside a physical card. |
+| `/s/{slug}/qr?t={token}` | Organizer | Printable QR card for the party, the break room or inside a physical card. |
+
+Web privacy, concretely: contributors get an anonymous Supabase session so RLS has an `auth.uid()`
+for their own row. The token and key in the links are the real capabilities, checked by
+`security definer` functions (`sendoff_public`, `sendoff_reveal`, `sendoff_open`,
+`reveal_contributions`, `reveal_media`; see `0002_web.sql`). Media is private; contributors sign
+their own uploads via storage RLS, recipients get URLs from the `sign-media` Edge Function.
 
 The recipient link carries a long random key (`recipient_key`) so it cannot be guessed from the
 contribute slug. The organizer gets both links and a QR code from the share screen. Recipients
@@ -124,18 +132,26 @@ app or the site is built. It renders both the contribute page and the reveal.
 
 ### Domain
 
-`sendoff.app` is used as a placeholder throughout. Check availability; `getsendoff.com`,
-`sendoff.cards` or `mysendoff.com` are fallbacks. The universal-link entitlement, the
-`apple-app-site-association` file and the Supabase redirect URLs all need the final domain.
+**`sendoffapp.com`** (registered). It is never hardcoded: the iOS build reads `PUBLIC_HOST` from
+`ios/Config/Local.xcconfig` (into Info.plist and the associated-domains entitlement) and the web
+reads `VITE_PUBLIC_ORIGIN`. Three things must point at it:
+
+1. DNS for the web host (Vercel, Netlify or Cloudflare Pages) serving `web/app/dist`.
+2. `web/app/public/.well-known/apple-app-site-association`, with `TEAMID` replaced by the Apple
+   team id, served as `application/json` with no redirect. Universal links and the App Clip
+   depend on it.
+3. Supabase Auth redirect URLs (magic links for organizers and recipients who sign in).
 
 ## Media pipeline
 
 1. Client uploads to Storage bucket `uploads/{sendoff}/{contribution}/{uuid}` with a signed
    upload URL (60s video / 2 min voice caps enforced client-side and by an Edge Function that
    rejects over-length files).
-2. A database webhook on `media` insert calls the `process-media` Edge Function: transcode
-   video to H.264 720p, normalize audio loudness, generate a voice transcript, write a poster
-   frame. Status moves `uploaded → processing → ready`.
+2. A database webhook on `media` insert calls the `process-media` Edge Function
+   (`supabase/functions/process-media`). It enforces the length caps server-side and moves status
+   `uploaded → processing → ready`. Edge Functions cannot run ffmpeg, so transcoding is an
+   adapter: `passthrough` (default, originals served as uploaded; enough to ship) or `mux`
+   (H.264 720p, poster frame, loudness, via a signed URL to Mux). Transcripts come later.
 3. Raw uploads are deleted 7 days after `ready`.
 
 ## Keepsake exports
@@ -149,8 +165,8 @@ app or the site is built. It renders both the contribute page and the reveal.
 
 | | Supabase project | Universal link host |
 |---|---|---|
-| dev | `sendoff-dev` | `dev.sendoff.app` |
-| prod | `sendoff` | `sendoff.app` |
+| dev | `sendoff-dev` | `dev.sendoffapp.com` |
+| prod | `sendoff` | `sendoffapp.com` |
 
 Secrets live in `ios/Config/*.xcconfig` (gitignored) and Supabase project settings. Nothing is
 committed.

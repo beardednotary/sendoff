@@ -1,4 +1,13 @@
-// Copy to Local.xcconfig (gitignored) and fill in. Values flow into Info.plist.
+// Copy to Local.xcconfig (gitignored) and fill in. Values flow into Info.plist and the entitlements.
+
+// The public domain. Used for share links, universal links and the App Clip. No scheme, no slash.
+PUBLIC_HOST = sendoffapp.com
+
+// Supabase project. Leave the key empty to run against MockStore.
 SUPABASE_URL = https:/$()/your-project.supabase.co
 SUPABASE_ANON_KEY = your-anon-key
+
+// Public bucket (or CDN) that serves stock tracks as {track_id}.m4a.
+MUSIC_BASE_URL = https:/$()/your-project.supabase.co/storage/v1/object/public/stock-music
+
 DEVELOPMENT_TEAM = YOURTEAMID
