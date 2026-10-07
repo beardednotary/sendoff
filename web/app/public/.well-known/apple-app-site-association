@@ -1,0 +1,15 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["TEAMID.com.dahvio.sendoff"],
+        "components": [
+          { "/": "/s/*", "comment": "Contribute and reveal links open in the app when installed" }
+        ]
+      }
+    ]
+  },
+  "appclips": {
+    "apps": ["TEAMID.com.dahvio.sendoff.Clip"]
+  }
+}
