@@ -43,7 +43,8 @@ final class PaymentsTests: XCTestCase {
         XCTAssertTrue(first.allSatisfy { $0.product == .single })
         let again = try await store.recordPurchase(.pack5, transactionID: "tx-1")
         XCTAssertEqual(again.count, 5)
-        XCTAssertEqual(try await store.entitlements().count, 5, "replaying a transaction must not mint more credits")
+        let all = try await store.entitlements()
+        XCTAssertEqual(all.count, 5, "replaying a transaction must not mint more credits")
     }
 
     func testRedeemRaisesPlanAndConsumesCredit() async throws {
@@ -55,7 +56,8 @@ final class PaymentsTests: XCTestCase {
         let upgraded = try await store.redeem(credit.id, for: s.id)
         XCTAssertEqual(upgraded.plan, .plus)
         XCTAssertEqual(upgraded.contributorLimit, Plan.plus.entryLimit)
-        XCTAssertEqual(try await store.entitlements().first?.consumedBy, s.id)
+        let spent = try await store.entitlements()
+        XCTAssertEqual(spent.first?.consumedBy, s.id)
 
         do {
             _ = try await store.redeem(credit.id, for: s.id)
