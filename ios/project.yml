@@ -33,6 +33,7 @@ targets:
     dependencies:
       - package: Supabase
         product: Supabase
+      - target: SendoffClip
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.dahvio.sendoff
@@ -63,6 +64,55 @@ targets:
         SupabaseURL: $(SUPABASE_URL)
         SupabaseAnonKey: $(SUPABASE_ANON_KEY)
         MusicBaseURL: $(MUSIC_BASE_URL)
+
+  # The App Clip: the contribute flow for iPhones without the app, launched from the shared
+  # link or the QR code. Shares source with the app; no StoreKit, no reveal, no organizer tools.
+  # Keep it small: the uncompressed limit is 15 MB on iOS 16+.
+  SendoffClip:
+    type: application.on-demand-install-capable
+    platform: iOS
+    sources:
+      - path: SendoffClip
+      - path: Sendoff/App/AppConfig.swift
+      - path: Sendoff/App/AppEnvironment.swift
+      - path: Sendoff/Models
+      - path: Sendoff/Design
+      - path: Sendoff/Services
+        excludes:
+          - Purchases.swift
+      - path: Sendoff/Features/Contribute
+      - path: Sendoff/Resources
+    dependencies:
+      - package: Supabase
+        product: Supabase
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dahvio.sendoff.Clip
+        INFOPLIST_KEY_CFBundleDisplayName: Sendoff
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
+        INFOPLIST_KEY_NSCameraUsageDescription: "Sendoff uses the camera so you can add a photo or a short video."
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: "Sendoff uses the microphone so you can record a voice note."
+        INFOPLIST_KEY_NSPhotoLibraryUsageDescription: "Sendoff lets you pick photos from your library to add to a Sendoff."
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        CODE_SIGN_ENTITLEMENTS: SendoffClip/SendoffClip.entitlements
+    entitlements:
+      path: SendoffClip/SendoffClip.entitlements
+      properties:
+        com.apple.developer.associated-domains:
+          - appclips:$(PUBLIC_HOST)
+        com.apple.developer.parent-application-identifiers:
+          - $(AppIdentifierPrefix)com.dahvio.sendoff
+    info:
+      path: SendoffClip/Info.plist
+      properties:
+        NSAppClip:
+          NSAppClipRequestEphemeralUserNotification: false
+          NSAppClipRequestLocationConfirmation: false
+        PublicHost: $(PUBLIC_HOST)
+        SupabaseURL: $(SUPABASE_URL)
+        SupabaseAnonKey: $(SUPABASE_ANON_KEY)
 
   SendoffTests:
     type: bundle.unit-test

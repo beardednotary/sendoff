@@ -69,8 +69,12 @@ without a backend, which is how the app is demoed before Supabase is configured.
 ### Deep links
 
 `https://sendoffapp.com/s/{slug}?t={token}` is a universal link. The app opens the contribute flow (or the
-reveal, if the viewer is the recipient and the Sendoff is open). The App Clip handles the same
-URL for people without the app. The web page is the fallback for everything else.
+reveal, if the viewer is the recipient and the Sendoff is open). The App Clip (`SendoffClip`
+target, `ios/SendoffClip/`) handles the same URL for iPhones without the app: it is the
+contribute flow only, built from the same Models, Design, Services and Features/Contribute
+sources, without StoreKit. A recipient link in the clip hands off to the web reveal. The web page
+is the fallback for everything else. The `.well-known/apple-app-site-association` file served
+from the domain lists both the app and the clip.
 
 ### Payments
 
