@@ -353,17 +353,17 @@ on conflict (id) do nothing;
 -- Seed: themes and stock music placeholders
 -- ---------------------------------------------------------------------------
 insert into themes (id, name, premium, sort_order, definition) values
-('letterpress', 'Letterpress', false, 1, '{"paper":"#F4EFE6","ink":"#1F1D1A","mutedInk":"#6B655C","seal":"#C8442B","accent":"#D9C7A3","motion":"lift","texture":"paper","radius":6}'),
-('midnight_toast', 'Midnight Toast', false, 2, '{"paper":"#0F1B2D","ink":"#F2EBDD","mutedInk":"#A79F8E","seal":"#C9A24A","accent":"#2A3A55","motion":"lift","texture":"linen","radius":10}'),
-('chalk', 'Chalk', false, 3, '{"paper":"#2F4A3E","ink":"#F7F3E8","mutedInk":"#B8C4B9","seal":"#E9C46A","accent":"#3E5C4E","motion":"turn","texture":"chalk","radius":4}'),
+('letterpress', 'Paper', false, 1, '{"paper":"#F5F3EF","ink":"#141413","mutedInk":"#55524D","seal":"#141413","accent":"#E8E5DF","motion":"lift","texture":"paper","radius":22}'),
+('midnight_toast', 'Evening', false, 2, '{"paper":"#0E0E0D","ink":"#F3F1EC","mutedInk":"#ADAAA3","seal":"#F3F1EC","accent":"#262624","motion":"lift","texture":"linen","radius":22}'),
+('chalk', 'Blackboard', false, 3, '{"paper":"#18211C","ink":"#EEF0EA","mutedInk":"#A7B1A9","seal":"#EEF0EA","accent":"#26322B","motion":"turn","texture":"chalk","radius":22}'),
 ('gold_leaf', 'Gold Leaf', true, 10, '{"paper":"#F6F1E7","ink":"#1F1D1A","mutedInk":"#6B655C","seal":"#B8912E","accent":"#E8D9B5","motion":"lift","texture":"paper","radius":6,"foil":true}'),
 ('darkroom', 'Darkroom', true, 11, '{"paper":"#0B0B0C","ink":"#EDEDED","mutedInk":"#8E8E8E","seal":"#E04E39","accent":"#1E1E20","motion":"fade","texture":"grain","radius":2}'),
-('field_day', 'Field Day', true, 12, '{"paper":"#2E7D4F","ink":"#FFFFFF","mutedInk":"#CFE6D7","seal":"#F4D35E","accent":"#256A42","motion":"turn","texture":"grass","radius":8}')
+('field_day', 'Field Day', true, 12, '{"paper":"#2E7D4F","ink":"#FFFFFF","mutedInk":"#CFE6D7","seal":"#F4D35E","accent":"#256A42","motion":"turn","texture":"grass","radius":8,"onSeal":"#1F5A38"}')
 on conflict (id) do nothing;
 
 insert into music_tracks (id, title, artist, duration_seconds, storage_path, premium, mood, sort_order) values
-('warm_piano', 'Last Light', 'Stock', 182, 'stock-music/last_light.m4a', false, 'warm', 1),
-('bright_strings', 'Open Windows', 'Stock', 164, 'stock-music/open_windows.m4a', false, 'bright', 2),
-('reflective_guitar', 'Long Hallway', 'Stock', 201, 'stock-music/long_hallway.m4a', false, 'reflective', 3),
-('triumphant_brass', 'Final Whistle', 'Stock', 158, 'stock-music/final_whistle.m4a', false, 'triumphant', 4)
+('warm_piano', 'Last Light', 'Stock', 182, 'stock-music/warm_piano.m4a', false, 'warm', 1),
+('bright_strings', 'Open Windows', 'Stock', 164, 'stock-music/bright_strings.m4a', false, 'bright', 2),
+('reflective_guitar', 'Long Hallway', 'Stock', 201, 'stock-music/reflective_guitar.m4a', false, 'reflective', 3),
+('triumphant_brass', 'Final Whistle', 'Stock', 158, 'stock-music/triumphant_brass.m4a', false, 'triumphant', 4)
 on conflict (id) do nothing;

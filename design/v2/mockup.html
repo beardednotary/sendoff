@@ -1,0 +1,423 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<link rel="stylesheet" href="file:///Users/rayro/Downloads/App%20Designer/app-designer/assets/device.css">
+<title>Sendoff v2: Evening</title>
+<style>
+/* Tokens. Light is the default; dark overrides on .screen[data-theme="dark"]. */
+:root {
+  --bg: #F5F3EF; --surface: #FFFFFF; --surface-2: #E8E5DF; --line: rgba(20,20,19,.10);
+  --ink: #141413; --ink-2: #55524D; --ink-3: #6B6863; --on-ink: #F5F3EF;
+}
+.screen[data-theme="dark"] {
+  --bg: #0E0E0D; --surface: #1A1A18; --surface-2: #262624; --line: rgba(243,241,236,.10);
+  --ink: #F3F1EC; --ink-2: #ADAAA3; --ink-3: #8A8781; --on-ink: #0E0E0D;
+  color: var(--ink);
+}
+.screen { background: var(--bg); color: var(--ink); }
+.page { position: absolute; inset: 0; display: flex; flex-direction: column; }
+.pad { padding-left: 20px; padding-right: 20px; }
+
+/* Type: New York for what people wrote and who it is for; SF Pro for the app. */
+.display { font-family: var(--ny); font-weight: 400; font-size: 40px; line-height: 1.08; letter-spacing: -0.02em; margin: 0; }
+.display.xl { font-size: 48px; }
+.serif-l { font-family: var(--ny); font-size: 28px; line-height: 1.3; letter-spacing: -0.01em; margin: 0; }
+.serif-m { font-family: var(--ny); font-size: 20px; line-height: 1.3; margin: 0; }
+.eyebrow { font: 600 11px/1.2 var(--sf); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3); margin: 0; }
+.body { font: 400 15px/1.45 var(--sf); color: var(--ink-2); margin: 0; }
+.meta { font: 400 13px/1.35 var(--sf); color: var(--ink-3); margin: 0; }
+.label { font: 600 15px/1.3 var(--sf); color: var(--ink); margin: 0; }
+.ui { font: 400 17px/1.3 var(--sf); margin: 0; }
+
+svg.i { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Controls */
+.pill { height: 50px; border-radius: 25px; padding: 0 22px; border: 0; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font: 600 17px var(--sf); white-space: nowrap; }
+.pill.primary { background: var(--ink); color: var(--on-ink); }
+.pill.secondary { background: var(--surface-2); color: var(--ink); }
+.pill.small { height: 44px; border-radius: 22px; padding: 0 16px; font-size: 15px; font-weight: 500; }
+.circle { width: 44px; height: 44px; border-radius: 22px; border: 0; display: grid; place-items: center; background: var(--surface-2); color: var(--ink); flex: none; }
+.circle.glass { background: rgba(20,20,19,.38); color: #fff; backdrop-filter: blur(18px); }
+
+/* The seal: a blind-embossed monogram, two fine rings, no colour. */
+.seal { position: relative; border-radius: 50%; display: grid; place-items: center; font-family: var(--ny); color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+.seal::after { content: ""; position: absolute; inset: 5px; border-radius: 50%; box-shadow: inset 0 0 0 1px var(--line); }
+
+.row { display: flex; align-items: center; gap: 14px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.row:last-child { border-bottom: 0; }
+.stack { display: flex; flex-direction: column; }
+.photo { background-size: cover; background-position: center; }
+.metaline { display: flex; align-items: center; gap: 10px; font: 400 15px/1.3 var(--sf); color: var(--ink-2); }
+.metaline svg { color: var(--ink-3); }
+</style></head>
+<body>
+
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+  <symbol id="i-people" viewBox="0 0 24 24"><circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"/><circle cx="16.5" cy="9.5" r="2.6"/><path d="M15.5 14.2c2.4-.3 4.4 1.2 5 4.3"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5.5" y="10.5" width="13" height="9.5" rx="2"/><path d="M8.5 10.5V8a3.5 3.5 0 017 0v2.5"/></symbol>
+  <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 15V4M8 7.5L12 3.5l4 4"/><path d="M7 11H6a1.5 1.5 0 00-1.5 1.5v6A1.5 1.5 0 006 20h12a1.5 1.5 0 001.5-1.5v-6A1.5 1.5 0 0018 11h-1"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-photo" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="2.5"/><circle cx="9" cy="10" r="1.6"/><path d="M20.5 15.5l-4.5-4.5-8 8"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3.5" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0013 0M12 18v2.5"/></symbol>
+  <symbol id="i-video" viewBox="0 0 24 24"><rect x="3" y="6.5" width="12.5" height="11" rx="2.5"/><path d="M15.5 10.5l5-3v9l-5-3"/></symbol>
+  <symbol id="i-wave" viewBox="0 0 24 24"><path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 10.5v3"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9.5 6l6 6-6 6"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M5 20h14"/></symbol>
+  <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V6l10-2v11"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="15" r="2.5"/></symbol>
+  <symbol id="i-path" viewBox="0 0 1024 1024"><path stroke="none" fill="currentColor" d="M100 1024C190 850 480 800 585 680C680 570 590 475 470 405C395 360 430 290 610 232C720 197 820 170 905 148C845 190 760 220 690 248C560 302 575 350 650 392C820 480 830 630 720 740C630 830 625 920 650 1024Z"/></symbol>
+</svg>
+
+<!-- 1. Home, dark ---------------------------------------------------------- -->
+<section class="screen" data-theme="dark" data-name="01-home" data-time="9:41">
+  <div class="page" style="padding-top: var(--safe-top)">
+    <div class="pad" style="display:flex;align-items:center;justify-content:space-between;height:52px">
+      <svg class="i" style="width:26px;height:26px;color:var(--ink)" aria-label="Sendoff"><use href="#i-path"/></svg>
+      <button class="circle" aria-label="Start a Sendoff"><svg class="i"><use href="#i-plus"/></svg></button>
+    </div>
+    <h1 class="display pad" style="margin-top:6px">Sendoffs</h1>
+
+    <p class="eyebrow pad" style="margin-top:30px">In progress</p>
+    <div data-scrolls data-bleed style="display:flex;gap:12px;padding:12px 20px 0;overflow:hidden">
+      <div class="photo" style="flex:none;width:268px;height:calc(var(--screen-h) * .45);border-radius:24px;position:relative;overflow:hidden;background-image:url('https://images.unsplash.com/photo-1631885627929-0ea00ff4bf06?w=800&q=80&auto=format&fit=crop')">
+        <div style="position:absolute;inset:auto 0 0 0;height:62%;background:linear-gradient(to bottom, rgba(0,0,0,0), rgba(0,0,0,.78))"></div>
+        <div style="position:absolute;left:18px;right:18px;bottom:18px;color:#fff">
+          <p class="eyebrow" style="color:rgba(255,255,255,.82)">Collecting</p>
+          <p class="serif-l" style="margin-top:6px;color:#fff">Jo Lindqvist</p>
+          <div style="display:flex;gap:14px;margin-top:8px;font:400 13px var(--sf);color:rgba(255,255,255,.88)">
+            <span style="display:flex;gap:5px;align-items:center"><svg class="i" style="width:15px;height:15px"><use href="#i-people"/></svg>7 of 12</span>
+            <span style="display:flex;gap:5px;align-items:center"><svg class="i" style="width:15px;height:15px"><use href="#i-clock"/></svg>Closes Sun, Nov 8</span>
+          </div>
+        </div>
+      </div>
+      <div class="photo" style="flex:none;width:268px;height:calc(var(--screen-h) * .45);border-radius:24px;position:relative;overflow:hidden;background-image:url('https://images.unsplash.com/photo-1578593139939-cccb1e98698c?w=800&q=80&auto=format&fit=crop')">
+        <div style="position:absolute;inset:auto 0 0 0;height:62%;background:linear-gradient(to bottom, rgba(0,0,0,0), rgba(0,0,0,.78))"></div>
+        <div style="position:absolute;left:18px;right:18px;bottom:18px;color:#fff">
+          <p class="eyebrow" style="color:rgba(255,255,255,.82)">Sealed</p>
+          <p class="serif-l" style="margin-top:6px;color:#fff">Mr. Patel</p>
+          <div style="display:flex;gap:14px;margin-top:8px;font:400 13px var(--sf);color:rgba(255,255,255,.88)">
+            <span style="display:flex;gap:5px;align-items:center"><svg class="i" style="width:15px;height:15px"><use href="#i-lock"/></svg>Opens Wed, Nov 4</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <p class="eyebrow pad" style="margin-top:32px">Opened</p>
+    <div class="pad" style="margin-top:4px">
+      <div class="row">
+        <div class="photo" style="width:56px;height:56px;border-radius:14px;background-image:url('https://images.unsplash.com/photo-1695556746253-ab635cedac50?w=200&q=80&auto=format&fit=crop')"></div>
+        <div class="stack" style="flex:1;gap:3px">
+          <p class="serif-m">Maria Reyes</p>
+          <p class="meta">Retirement · 6 people · opened Oct 28</p>
+        </div>
+        <svg class="i" style="color:var(--ink-3)"><use href="#i-chev"/></svg>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 2. Detail, collecting -------------------------------------------------- -->
+<section class="screen" data-theme="dark" data-chrome="light" data-name="02-detail" data-time="9:42">
+  <div class="photo" style="position:absolute;inset:0 0 auto 0;height:calc(var(--screen-h) * .49);background-image:url('https://images.unsplash.com/photo-1631885627929-0ea00ff4bf06?w=1000&q=80&auto=format&fit=crop');background-position:center 30%"></div>
+  <div style="position:absolute;inset:0 0 auto 0;height:calc(var(--screen-h) * .49);background:linear-gradient(to bottom, rgba(14,14,13,.55) 0%, rgba(14,14,13,0) 28%, rgba(14,14,13,0) 40%, #0E0E0D 98%)"></div>
+  <div style="position:absolute;top:calc(var(--safe-top) + 2px);left:16px;right:16px;display:flex;justify-content:space-between" data-float>
+    <button class="circle glass" aria-label="Back"><svg class="i"><use href="#i-back"/></svg></button>
+    <button class="circle glass" aria-label="More"><svg class="i"><use href="#i-more"/></svg></button>
+  </div>
+  <div class="page pad" style="padding-top:calc(var(--screen-h) * .34);gap:0">
+    <p class="eyebrow" style="color:var(--ink-2)">New job</p>
+    <h1 class="display" style="margin-top:8px">Jo Lindqvist</h1>
+    <p class="body" style="margin-top:6px">From the Platform team</p>
+
+    <div class="stack" style="gap:12px;margin-top:22px">
+      <div class="metaline"><svg class="i"><use href="#i-clock"/></svg>Collecting until Sunday, November 8</div>
+      <div class="metaline"><svg class="i"><use href="#i-people"/></svg>7 of 12 have added</div>
+      <div class="metaline"><svg class="i"><use href="#i-lock"/></svg>Opens when you say so</div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:24px">
+      <button class="pill primary" style="flex:1"><svg class="i"><use href="#i-share"/></svg>Share the link</button>
+      <button class="pill secondary"><svg class="i"><use href="#i-eye"/></svg>Preview</button>
+    </div>
+
+    <p class="eyebrow" style="margin-top:32px">In the envelope · 7</p>
+    <div data-scrolls style="overflow:hidden;flex:1">
+      <div class="row">
+        <div class="stack" style="flex:1;gap:3px;min-width:0">
+          <p class="label">Ana Ruiz <span style="font-weight:400;color:var(--ink-3)">· First code reviewer</span></p>
+          <p class="meta" style="color:var(--ink-2);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">You reviewed my first pull request with eleven comments and a drawing of a cat. I kept the cat.</p>
+        </div>
+      </div>
+      <div class="row">
+        <div class="stack" style="flex:1;gap:3px">
+          <p class="label">Marcus Lee <span style="font-weight:400;color:var(--ink-3)">· Desk to your left</span></p>
+          <p class="meta" style="display:flex;gap:6px;align-items:center"><svg class="i" style="width:15px;height:15px"><use href="#i-wave"/></svg>Voice note · 0:52</p>
+        </div>
+      </div>
+      <div class="row">
+        <div class="stack" style="flex:1;gap:3px">
+          <p class="label">Priya Shah <span style="font-weight:400;color:var(--ink-3)">· Platform</span></p>
+          <p class="meta" style="display:flex;gap:6px;align-items:center"><svg class="i" style="width:15px;height:15px"><use href="#i-photo"/></svg>2 photos</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 3. Create, step 1 ------------------------------------------------------ -->
+<section class="screen" data-theme="dark" data-name="03-create" data-time="9:44">
+  <div class="page pad" style="padding-top:var(--safe-top);padding-bottom:var(--safe-bottom)">
+    <div style="display:flex;align-items:center;justify-content:space-between;height:52px">
+      <button class="circle" aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button>
+      <p class="meta">1 of 4</p>
+    </div>
+    <p class="eyebrow" style="margin-top:18px">New Sendoff</p>
+    <h1 class="display" style="margin-top:10px">Who are we<br>sending off?</h1>
+
+    <div class="photo" style="position:relative;margin-top:26px;height:calc(var(--screen-h) * .27);border-radius:22px;background-image:url('https://images.unsplash.com/photo-1631885627929-0ea00ff4bf06?w=900&q=80&auto=format&fit=crop');background-position:center 30%">
+      <button class="pill small" style="position:absolute;left:12px;bottom:12px;background:rgba(20,20,19,.55);color:#fff;backdrop-filter:blur(16px)"><svg class="i" style="width:16px;height:16px"><use href="#i-photo"/></svg>Change photo</button>
+    </div>
+
+    <div class="stack" style="gap:10px;margin-top:22px">
+      <div style="height:56px;border-radius:16px;background:var(--surface);box-shadow:inset 0 0 0 1px var(--line);display:flex;align-items:center;padding:0 16px">
+        <p class="ui">Jo Lindqvist<span style="display:inline-block;width:2px;height:21px;background:var(--ink);margin-left:2px;vertical-align:-4px"></span></p>
+      </div>
+      <div style="height:56px;border-radius:16px;background:var(--surface);box-shadow:inset 0 0 0 1px var(--line);display:flex;align-items:center;padding:0 16px">
+        <p class="ui" style="color:var(--ink-3)">From… the Platform team</p>
+      </div>
+    </div>
+
+    <div style="flex:1"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div style="display:flex;gap:6px">
+        <i style="width:18px;height:6px;border-radius:3px;background:var(--ink)"></i>
+        <i style="width:6px;height:6px;border-radius:3px;background:var(--surface-2)"></i>
+        <i style="width:6px;height:6px;border-radius:3px;background:var(--surface-2)"></i>
+        <i style="width:6px;height:6px;border-radius:3px;background:var(--surface-2)"></i>
+      </div>
+      <button class="pill primary">Next<svg class="i"><use href="#i-arrow"/></svg></button>
+    </div>
+  </div>
+</section>
+
+<!-- 4. Share --------------------------------------------------------------- -->
+<section class="screen" data-theme="dark" data-name="04-share" data-time="9:45">
+  <div class="page pad" style="padding-top:var(--safe-top);padding-bottom:var(--safe-bottom)">
+    <div style="display:flex;align-items:center;height:52px">
+      <button class="circle" aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button>
+    </div>
+    <p class="eyebrow" style="margin-top:18px">Invite people</p>
+    <h1 class="display" style="margin-top:10px">Share the link.<br>Gather the words.</h1>
+
+    <div style="margin-top:28px;border-radius:26px;background:var(--surface);padding:22px 20px 20px">
+      <div style="display:flex;gap:14px;align-items:center">
+        <div class="photo" style="width:48px;height:48px;border-radius:24px;background-image:url('https://images.unsplash.com/photo-1631885627929-0ea00ff4bf06?w=200&q=80&auto=format&fit=crop')"></div>
+        <div class="stack" style="gap:2px">
+          <p class="serif-m">For Jo, from everyone</p>
+          <p class="meta">sendoffapp.com/s/jo-moves</p>
+        </div>
+      </div>
+      <div style="margin:22px auto 0;width:calc(var(--screen-h) * .22);height:calc(var(--screen-h) * .22);border-radius:24px;background:#F3F1EC;padding:20px">
+        <img src="qr.svg" style="width:100%;height:100%;display:block" alt="QR code">
+      </div>
+      <p class="body" style="margin-top:20px">Anyone with the link can add a note, a photo, a voice memo or a short video. Only Jo and you will read them.</p>
+      <div style="display:flex;gap:10px;margin-top:18px">
+        <button class="pill primary" style="flex:1"><svg class="i"><use href="#i-share"/></svg>Share link</button>
+        <button class="pill secondary" style="flex:1"><svg class="i"><use href="#i-down"/></svg>Save QR</button>
+      </div>
+    </div>
+    <p class="meta" style="margin-top:16px">Jo gets a different link on the day. It stays sealed until then.</p>
+  </div>
+</section>
+
+<!-- 5. Contribute, light (Paper theme) ------------------------------------- -->
+<section class="screen" data-name="05-contribute" data-time="12:31">
+  <div class="page pad" style="padding-top:var(--safe-top);padding-bottom:var(--safe-bottom)">
+    <div style="display:flex;align-items:center;justify-content:space-between;height:52px">
+      <button class="circle" aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button>
+      <div class="seal" style="width:40px;height:40px;font-size:20px">J</div>
+      <div style="width:44px"></div>
+    </div>
+    <p class="eyebrow" style="margin-top:18px">For Jo Lindqvist · New job</p>
+    <h1 class="display" style="margin-top:10px">Write something<br>only Jo will read.</h1>
+    <p class="meta" style="margin-top:12px;display:flex;gap:7px;align-items:flex-start"><svg class="i" style="width:15px;height:15px;margin-top:1px"><use href="#i-lock"/></svg>Only Jo and Dan will see this. Nobody else who adds can read it.</p>
+
+    <div data-scrolls data-bleed style="display:flex;gap:8px;margin:20px -20px 0;padding:0 20px;overflow:hidden">
+      <button class="pill small secondary">What the next team is lucky to get</button>
+      <button class="pill small secondary">The thing you'll miss</button>
+    </div>
+
+    <p class="serif-m" style="margin-top:22px;font-size:20px;line-height:1.45">You reviewed my first pull request with eleven comments and a drawing of a cat. I kept the cat.<span style="display:inline-block;width:2px;height:22px;background:var(--ink);margin-left:2px;vertical-align:-4px"></span></p>
+    <div style="height:1px;background:var(--line);margin-top:18px"></div>
+
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="pill small secondary"><svg class="i" style="width:16px;height:16px"><use href="#i-photo"/></svg>Photo</button>
+      <button class="pill small secondary"><svg class="i" style="width:16px;height:16px"><use href="#i-mic"/></svg>Voice</button>
+      <button class="pill small secondary"><svg class="i" style="width:16px;height:16px"><use href="#i-video"/></svg>Video</button>
+    </div>
+
+    <p class="meta" style="margin-top:24px">Sign it</p>
+    <p class="ui" style="margin-top:4px">Ana Ruiz</p>
+    <div style="height:1px;background:var(--line);margin-top:10px"></div>
+
+    <div style="flex:1"></div>
+    <button class="pill primary" style="width:100%">Add yours</button>
+  </div>
+</section>
+
+<!-- 6. Reveal, sealed ------------------------------------------------------ -->
+<section class="screen" data-chrome="light" data-theme="dark" data-name="06-sealed" data-time="18:02">
+  <div class="photo" style="position:absolute;inset:0;background-image:url('https://images.unsplash.com/photo-1695556746253-ab635cedac50?w=500&q=60&auto=format&fit=crop&blur=200')"></div>
+  <div style="position:absolute;inset:0;background:rgba(10,10,9,.52)"></div>
+  <div style="position:absolute;top:calc(var(--safe-top) + 2px);right:16px" data-float>
+    <button class="circle glass" aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button>
+  </div>
+  <div class="page pad" style="align-items:center;text-align:center;padding-top:calc(var(--screen-h) * .28);color:#fff">
+    <div style="position:relative;width:140px;height:140px">
+      <svg viewBox="0 0 140 140" style="position:absolute;inset:0">
+        <circle cx="70" cy="70" r="69" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="1"/>
+        <circle cx="70" cy="70" r="69" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-dasharray="433.5" stroke-dashoffset="173" transform="rotate(-90 70 70)"/>
+        <circle cx="70" cy="70" r="62" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="1"/>
+      </svg>
+      <div style="position:absolute;inset:0;display:grid;place-items:center;font:400 60px/1 var(--ny);color:#fff">M</div>
+    </div>
+    <h1 class="display" style="margin-top:40px;color:#fff">For Maria Reyes</h1>
+    <p class="body" style="margin-top:10px;color:rgba(255,255,255,.82)">From the whole fourth floor · 6 people</p>
+    <div style="flex:1"></div>
+    <p class="body" style="color:rgba(255,255,255,.9);margin-bottom:64px">Keep holding</p>
+  </div>
+</section>
+
+<!-- 7. Reveal, cover ------------------------------------------------------- -->
+<section class="screen" data-chrome="light" data-theme="dark" data-name="07-cover" data-time="18:02">
+  <div class="photo" style="position:absolute;inset:0 0 auto 0;height:calc(var(--screen-h) * .64);background-image:url('https://images.unsplash.com/photo-1695556746253-ab635cedac50?w=1000&q=80&auto=format&fit=crop');background-position:center 25%"></div>
+  <div style="position:absolute;inset:0 0 auto 0;height:calc(var(--screen-h) * .64);background:linear-gradient(to bottom, rgba(14,14,13,0) 45%, #0E0E0D 99%)"></div>
+  <div style="position:absolute;top:calc(var(--safe-top) + 2px);right:16px" data-float>
+    <button class="circle glass" aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button>
+  </div>
+  <div class="page pad" style="padding-top:calc(var(--screen-h) * .54);padding-bottom:var(--safe-bottom)">
+    <p class="eyebrow" style="color:var(--ink-2)">Retirement</p>
+    <h1 class="display xl" style="margin-top:8px">Maria Reyes</h1>
+    <p class="body" style="margin-top:8px">From the whole fourth floor</p>
+    <p class="serif-m" style="margin-top:22px;line-height:1.4">Thirty-one years. We tried to fit it in here.</p>
+    <div style="flex:1"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <p class="meta" style="display:flex;gap:6px;align-items:center"><svg class="i" style="width:15px;height:15px"><use href="#i-music"/></svg>Last Light</p>
+      <button class="pill secondary small">Begin<svg class="i" style="width:16px;height:16px"><use href="#i-arrow"/></svg></button>
+    </div>
+  </div>
+</section>
+
+<!-- 8. Reveal, a written entry --------------------------------------------- -->
+<section class="screen" data-theme="dark" data-name="08-entry-text" data-time="18:04">
+  <div class="page pad" style="padding-top:calc(var(--safe-top) + 6px);padding-bottom:var(--safe-bottom)">
+    <div style="display:flex;gap:4px">
+      <i style="flex:1;height:2px;border-radius:1px;background:var(--ink)"></i>
+      <i style="flex:1;height:2px;border-radius:1px;background:var(--surface-2)"></i>
+      <i style="flex:1;height:2px;border-radius:1px;background:var(--surface-2)"></i>
+      <i style="flex:1;height:2px;border-radius:1px;background:var(--surface-2)"></i>
+      <i style="flex:1;height:2px;border-radius:1px;background:var(--surface-2)"></i>
+      <i style="flex:1;height:2px;border-radius:1px;background:var(--surface-2)"></i>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">
+      <p class="meta">1 of 6</p>
+      <button class="circle" aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button>
+    </div>
+    <div style="flex:1;display:flex;flex-direction:column;justify-content:center">
+      <p class="serif-l" style="font-size:28px;line-height:1.3">Maria. You hired me when I had no business being hired. You spent the first year quietly fixing what I broke and the next nine teaching me not to break it. Every good habit I have at work is one of yours.</p>
+      <p class="serif-l" style="font-size:28px;line-height:1.3;margin-top:18px">Enjoy the mornings.</p>
+      <div style="display:flex;gap:12px;align-items:center;margin-top:30px">
+        <i style="width:24px;height:1px;background:var(--ink-3)"></i>
+        <p class="label">Dan Okafor <span style="font-weight:400;color:var(--ink-3)">· Your manager, somehow</span></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 9. Reveal, a photo entry ----------------------------------------------- -->
+<section class="screen" data-theme="dark" data-name="09-entry-photo" data-time="18:06">
+  <div class="page pad" style="padding-top:calc(var(--safe-top) + 6px);padding-bottom:var(--safe-bottom)">
+    <div style="display:flex;gap:4px">
+      <i style="flex:1;height:2px;border-radius:1px;background:var(--ink)"></i>
+      <i style="flex:1;height:2px;border-radius:1px;background:var(--ink)"></i>
+      <i style="flex:1;height:2px;border-radius:1px;background:var(--ink)"></i>
+      <i style="flex:1;height:2px;border-radius:1px;background:var(--ink)"></i>
+      <i style="flex:1;height:2px;border-radius:1px;background:var(--surface-2)"></i>
+      <i style="flex:1;height:2px;border-radius:1px;background:var(--surface-2)"></i>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">
+      <p class="meta">4 of 6</p>
+      <button class="circle" aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button>
+    </div>
+    <div class="photo" style="position:relative;margin-top:14px;height:calc(var(--screen-h) * .52);border-radius:22px;background-image:url('https://images.unsplash.com/photo-1670899460364-ebc917bac09a?w=1000&q=80&auto=format&fit=crop')">
+      <div style="position:absolute;bottom:14px;left:0;right:0;display:flex;justify-content:center;gap:6px">
+        <i style="width:6px;height:6px;border-radius:3px;background:#fff"></i>
+        <i style="width:6px;height:6px;border-radius:3px;background:rgba(255,255,255,.45)"></i>
+      </div>
+    </div>
+    <p class="serif-l" style="margin-top:26px">We are not going to survive Wednesdays.</p>
+    <div style="display:flex;gap:12px;align-items:center;margin-top:18px">
+      <i style="width:24px;height:1px;background:var(--ink-3)"></i>
+      <p class="label">The Wednesday lunch crew</p>
+    </div>
+  </div>
+</section>
+
+<!-- 10. Home, light -------------------------------------------------------- -->
+<section class="screen" data-name="10-home-light" data-time="9:41">
+  <div class="page" style="padding-top: var(--safe-top)">
+    <div class="pad" style="display:flex;align-items:center;justify-content:space-between;height:52px">
+      <svg class="i" style="width:26px;height:26px;color:var(--ink)" aria-label="Sendoff"><use href="#i-path"/></svg>
+      <button class="circle" aria-label="Start a Sendoff"><svg class="i"><use href="#i-plus"/></svg></button>
+    </div>
+    <h1 class="display pad" style="margin-top:6px">Sendoffs</h1>
+
+    <p class="eyebrow pad" style="margin-top:30px">In progress</p>
+    <div data-scrolls data-bleed style="display:flex;gap:12px;padding:12px 20px 0;overflow:hidden">
+      <div class="photo" style="flex:none;width:268px;height:calc(var(--screen-h) * .45);border-radius:24px;position:relative;overflow:hidden;background-image:url('https://images.unsplash.com/photo-1631885627929-0ea00ff4bf06?w=800&q=80&auto=format&fit=crop')">
+        <div style="position:absolute;inset:auto 0 0 0;height:62%;background:linear-gradient(to bottom, rgba(0,0,0,0), rgba(0,0,0,.78))"></div>
+        <div style="position:absolute;left:18px;right:18px;bottom:18px;color:#fff">
+          <p class="eyebrow" style="color:rgba(255,255,255,.82)">Collecting</p>
+          <p class="serif-l" style="margin-top:6px;color:#fff">Jo Lindqvist</p>
+          <div style="display:flex;gap:14px;margin-top:8px;font:400 13px var(--sf);color:rgba(255,255,255,.88)">
+            <span style="display:flex;gap:5px;align-items:center"><svg class="i" style="width:15px;height:15px"><use href="#i-people"/></svg>7 of 12</span>
+            <span style="display:flex;gap:5px;align-items:center"><svg class="i" style="width:15px;height:15px"><use href="#i-clock"/></svg>Closes Sun, Nov 8</span>
+          </div>
+        </div>
+      </div>
+      <div class="photo" style="flex:none;width:268px;height:calc(var(--screen-h) * .45);border-radius:24px;position:relative;overflow:hidden;background-image:url('https://images.unsplash.com/photo-1578593139939-cccb1e98698c?w=800&q=80&auto=format&fit=crop')">
+        <div style="position:absolute;inset:auto 0 0 0;height:62%;background:linear-gradient(to bottom, rgba(0,0,0,0), rgba(0,0,0,.78))"></div>
+        <div style="position:absolute;left:18px;right:18px;bottom:18px;color:#fff">
+          <p class="eyebrow" style="color:rgba(255,255,255,.82)">Sealed</p>
+          <p class="serif-l" style="margin-top:6px;color:#fff">Mr. Patel</p>
+          <div style="display:flex;gap:14px;margin-top:8px;font:400 13px var(--sf);color:rgba(255,255,255,.88)">
+            <span style="display:flex;gap:5px;align-items:center"><svg class="i" style="width:15px;height:15px"><use href="#i-lock"/></svg>Opens Wed, Nov 4</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <p class="eyebrow pad" style="margin-top:32px">Opened</p>
+    <div class="pad" style="margin-top:4px">
+      <div class="row">
+        <div class="photo" style="width:56px;height:56px;border-radius:14px;background-image:url('https://images.unsplash.com/photo-1695556746253-ab635cedac50?w=200&q=80&auto=format&fit=crop')"></div>
+        <div class="stack" style="flex:1;gap:3px">
+          <p class="serif-m">Maria Reyes</p>
+          <p class="meta">Retirement · 6 people · opened Oct 28</p>
+        </div>
+        <svg class="i" style="color:var(--ink-3)"><use href="#i-chev"/></svg>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="app-icon" data-name="icon" style="background:#0E0E0D;display:grid;place-items:center">
+  <svg viewBox="0 0 1024 1024" style="width:58%;height:58%;color:#F3F1EC;transform:translate(-2%,4%)"><use href="#i-path"/></svg>
+</section>
+
+<script src="file:///Users/rayro/Downloads/App%20Designer/app-designer/assets/device.js"></script>
+</body></html>

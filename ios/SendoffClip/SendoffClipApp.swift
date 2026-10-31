@@ -42,10 +42,10 @@ struct ClipRootView: View {
     private var waiting: some View {
         ZStack {
             Paper()
-            VStack(spacing: 16) {
+            VStack(spacing: 18) {
                 PathMark(size: 56)
                 Text("Opening your Sendoff link").font(Typeface.title).foregroundStyle(theme.inkColor)
-                ProgressView().tint(theme.mutedInkColor)
+                ProgressView().tint(theme.faintInkColor)
             }
         }
         .sendoffTheme(theme)
@@ -56,20 +56,25 @@ struct ClipRootView: View {
         if let k = AppRouter.recipientKey(for: slug) { url.append(queryItems: [URLQueryItem(name: "k", value: k)]) }
         return ZStack {
             Paper()
-            VStack(spacing: 18) {
-                Seal(initial: "S", size: 72)
-                Text("This one opens on the web.").font(Typeface.title).foregroundStyle(theme.inkColor)
-                Text("The sealed envelope, the music and everything inside are waiting in Safari.")
-                    .font(Typeface.ui).foregroundStyle(theme.mutedInkColor).multilineTextAlignment(.center)
+            VStack(alignment: .leading, spacing: 0) {
+                Spacer()
+                PathMark(size: 56)
+                Text("This one opens\non the web.")
+                    .font(Typeface.display(40)).displayTracking(40)
+                    .foregroundStyle(theme.inkColor)
+                    .padding(.top, 28)
+                Text("The seal, the music and everything inside are waiting in Safari.")
+                    .font(Typeface.body).foregroundStyle(theme.mutedInkColor)
+                    .padding(.top, 12)
+                Spacer()
                 Link(destination: url) {
-                    Text("Open it")
-                        .font(.system(size: 18, weight: .semibold, design: .serif))
+                    PillLabel(title: "Open it")
                         .foregroundStyle(theme.onSealColor)
-                        .frame(maxWidth: .infinity).padding(.vertical, 16)
-                        .background(theme.sealColor, in: RoundedRectangle(cornerRadius: theme.radius + 6))
+                        .background(theme.sealColor, in: Capsule())
                 }
+                .buttonStyle(.pressable)
             }
-            .padding(28)
+            .padding(20)
         }
         .sendoffTheme(theme)
     }

@@ -46,6 +46,8 @@ struct SendoffDraft {
     var recipientName: String = ""
     var fromLine: String = ""
     var coverMessage: String = ""
+    /// A photo of them for the cover, picked on device. Optional.
+    var recipientPhoto: URL? = nil
     var themeID: ThemeID = .letterpress
     var musicTrackID: String? = nil
     var reveal: RevealPolicy = .onDate
@@ -120,7 +122,7 @@ final class MockStore: SendoffStore {
         let s = Sendoff(
             id: UUID(), slug: Slug.make(), organizerID: MockStore.me, organizerName: currentUserName,
             occasion: d.occasion, recipientName: d.recipientName.trimmingCharacters(in: .whitespaces),
-            recipientPhotoURL: nil,
+            recipientPhotoURL: d.recipientPhoto,
             fromLine: d.fromLine.isEmpty ? nil : d.fromLine,
             coverMessage: d.coverMessage.isEmpty ? nil : d.coverMessage,
             themeID: d.themeID, musicTrackID: d.musicTrackID ?? d.occasion.defaultTrack,
@@ -264,10 +266,15 @@ enum Slug {
 // MARK: - Sample data
 
 extension MockStore {
+    /// Demo photography from Unsplash (free licence), standing in for what people upload.
+    static func photo(_ id: String) -> URL? {
+        URL(string: "https://images.unsplash.com/\(id)?w=1200&q=80&auto=format&fit=crop")
+    }
+
     static let sampleSendoff: Sendoff = Sendoff(
         id: UUID(uuidString: "11111111-1111-1111-1111-111111111111")!,
         slug: "maria-r", organizerID: me, organizerName: "Dan Okafor",
-        occasion: .retirement, recipientName: "Maria Reyes", recipientPhotoURL: nil,
+        occasion: .retirement, recipientName: "Maria Reyes", recipientPhotoURL: MockStore.photo("photo-1695556746253-ab635cedac50"),
         fromLine: "From the whole fourth floor", coverMessage: "Thirty-one years. We tried to fit it in here.",
         themeID: .midnightToast, musicTrackID: "warm_piano",
         state: .open, moderation: .trust, reveal: .onDate,
@@ -280,7 +287,7 @@ extension MockStore {
     static let sampleSealed: Sendoff = Sendoff(
         id: UUID(uuidString: "22222222-2222-2222-2222-222222222222")!,
         slug: "mr-patel", organizerID: me, organizerName: "Dan Okafor",
-        occasion: .teacher, recipientName: "Mr. Patel", recipientPhotoURL: nil,
+        occasion: .teacher, recipientName: "Mr. Patel", recipientPhotoURL: MockStore.photo("photo-1578593139939-cccb1e98698c"),
         fromLine: "Room 14", coverMessage: nil,
         themeID: .chalk, musicTrackID: "reflective_guitar",
         state: .sealed, moderation: .review, reveal: .onDate,
@@ -293,7 +300,7 @@ extension MockStore {
     static let sampleCollecting: Sendoff = Sendoff(
         id: UUID(uuidString: "33333333-3333-3333-3333-333333333333")!,
         slug: "jo-moves", organizerID: me, organizerName: "Dan Okafor",
-        occasion: .newJob, recipientName: "Jo Lindqvist", recipientPhotoURL: nil,
+        occasion: .newJob, recipientName: "Jo Lindqvist", recipientPhotoURL: MockStore.photo("photo-1631885627929-0ea00ff4bf06"),
         fromLine: "Platform team", coverMessage: nil,
         themeID: .letterpress, musicTrackID: "bright_strings",
         state: .collecting, moderation: .trust, reveal: .manual,
@@ -312,25 +319,25 @@ extension MockStore {
         }
         return [
             c("Dan Okafor", "Your manager, somehow", "Maria. You hired me when I had no business being hired. You spent the first year quietly fixing what I broke and the next nine teaching me not to break it. Every good habit I have at work is one of yours.\n\nEnjoy the mornings.", pinned: true, daysAgo: 18),
-            c("Priya N.", "Your 2019 intern", "You said \"the deadline is real, the panic is optional.\" I have it on a sticky note. Still.", daysAgo: 12),
+            c("Priya N.", "Your 2019 intern", "You said \u{201C}the deadline is real, the panic is optional.\u{201D} I have it on a sticky note. Still.", daysAgo: 12),
             c("Tom Alvarez", "Facilities", nil,
-              media: [Media(id: UUID(), kind: .voice, url: nil, posterURL: nil, durationSeconds: 48, transcript: "Hey Maria, it's Tom. I just wanted to say... you were the only one who learned my kids' names.", width: nil, height: nil, localURL: nil)],
+              media: [Media(id: UUID(), kind: .voice, url: nil, posterURL: nil, durationSeconds: 48, transcript: "Hey Maria, it's Tom. I just wanted to say... you were the only one who learned my kids\u{2019} names.", width: nil, height: nil, localURL: nil)],
               daysAgo: 10),
             c("The Wednesday lunch crew", nil, "We are not going to survive Wednesdays.",
-              media: [Media(id: UUID(), kind: .photo, url: nil, posterURL: nil, durationSeconds: nil, transcript: nil, width: 1200, height: 900, localURL: nil),
-                      Media(id: UUID(), kind: .photo, url: nil, posterURL: nil, durationSeconds: nil, transcript: nil, width: 1200, height: 900, localURL: nil)],
+              media: [Media(id: UUID(), kind: .photo, url: MockStore.photo("photo-1670899460364-ebc917bac09a"), posterURL: nil, durationSeconds: nil, transcript: nil, width: 1200, height: 900, localURL: nil),
+                      Media(id: UUID(), kind: .photo, url: MockStore.photo("photo-1554902748-feaf536fc594"), posterURL: nil, durationSeconds: nil, transcript: nil, width: 1200, height: 900, localURL: nil)],
               daysAgo: 7),
             c("Lena Fischer", "Finance", nil,
-              media: [Media(id: UUID(), kind: .video, url: nil, posterURL: nil, durationSeconds: 41, transcript: nil, width: 1280, height: 720, localURL: nil)],
+              media: [Media(id: UUID(), kind: .video, url: nil, posterURL: MockStore.photo("photo-1568992688065-536aad8a12f6"), durationSeconds: 41, transcript: nil, width: 1280, height: 720, localURL: nil)],
               daysAgo: 5),
             c("Sam", "The new guy", "I've been here six weeks. You still made time. That told me everything about this place.", daysAgo: 3),
         ]
     }
 
     static let sampleTracks: [MusicTrack] = [
-        MusicTrack(id: "warm_piano", title: "Last Light", artist: "Stock", durationSeconds: 182, storagePath: "stock-music/last_light.m4a", appleMusicID: nil, premium: false, mood: "warm"),
-        MusicTrack(id: "bright_strings", title: "Open Windows", artist: "Stock", durationSeconds: 164, storagePath: "stock-music/open_windows.m4a", appleMusicID: nil, premium: false, mood: "bright"),
-        MusicTrack(id: "reflective_guitar", title: "Long Hallway", artist: "Stock", durationSeconds: 201, storagePath: "stock-music/long_hallway.m4a", appleMusicID: nil, premium: false, mood: "reflective"),
-        MusicTrack(id: "triumphant_brass", title: "Final Whistle", artist: "Stock", durationSeconds: 158, storagePath: "stock-music/final_whistle.m4a", appleMusicID: nil, premium: false, mood: "triumphant"),
+        MusicTrack(id: "warm_piano", title: "Last Light", artist: "Stock", durationSeconds: 182, storagePath: "stock-music/warm_piano.m4a", appleMusicID: nil, premium: false, mood: "warm"),
+        MusicTrack(id: "bright_strings", title: "Open Windows", artist: "Stock", durationSeconds: 164, storagePath: "stock-music/bright_strings.m4a", appleMusicID: nil, premium: false, mood: "bright"),
+        MusicTrack(id: "reflective_guitar", title: "Long Hallway", artist: "Stock", durationSeconds: 201, storagePath: "stock-music/reflective_guitar.m4a", appleMusicID: nil, premium: false, mood: "reflective"),
+        MusicTrack(id: "triumphant_brass", title: "Final Whistle", artist: "Stock", durationSeconds: 158, storagePath: "stock-music/triumphant_brass.m4a", appleMusicID: nil, premium: false, mood: "triumphant"),
     ]
 }

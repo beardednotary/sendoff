@@ -52,6 +52,10 @@ final class AppRouter {
     }
 }
 
+extension AppRouter.Destination {
+    var isReveal: Bool { if case .reveal = self { true } else { false } }
+}
+
 extension AppRouter.Destination: Identifiable {
     var id: String {
         switch self {

@@ -1,0 +1,250 @@
+[
+  {
+    "name": "01-home",
+    "fails": [],
+    "warns": [],
+    "facts": {
+      "fonts": {
+        "New York": 4,
+        "SF Pro": 8
+      },
+      "sizes": [
+        40,
+        28,
+        20,
+        13,
+        11
+      ],
+      "weights": [
+        "400",
+        "600"
+      ],
+      "leftEdges": 3,
+      "accentHues": [],
+      "cards": 0
+    }
+  },
+  {
+    "name": "02-detail",
+    "fails": [],
+    "warns": [],
+    "facts": {
+      "fonts": {
+        "SF Pro": 17,
+        "New York": 1
+      },
+      "sizes": [
+        40,
+        17,
+        15,
+        13,
+        11
+      ],
+      "weights": [
+        "400",
+        "600"
+      ],
+      "leftEdges": 4,
+      "accentHues": [],
+      "cards": 0
+    }
+  },
+  {
+    "name": "03-create",
+    "fails": [],
+    "warns": [],
+    "facts": {
+      "fonts": {
+        "SF Pro": 6,
+        "New York": 1
+      },
+      "sizes": [
+        40,
+        17,
+        15,
+        13,
+        11
+      ],
+      "weights": [
+        "400",
+        "500",
+        "600"
+      ],
+      "leftEdges": 3,
+      "accentHues": [],
+      "cards": 0
+    }
+  },
+  {
+    "name": "04-share",
+    "fails": [],
+    "warns": [],
+    "facts": {
+      "fonts": {
+        "SF Pro": 6,
+        "New York": 2
+      },
+      "sizes": [
+        40,
+        20,
+        17,
+        15,
+        13,
+        11
+      ],
+      "weights": [
+        "400",
+        "600"
+      ],
+      "leftEdges": 3,
+      "accentHues": [],
+      "cards": 2
+    }
+  },
+  {
+    "name": "05-contribute",
+    "fails": [],
+    "warns": [],
+    "facts": {
+      "fonts": {
+        "New York": 3,
+        "SF Pro": 10
+      },
+      "sizes": [
+        40,
+        20,
+        17,
+        15,
+        13,
+        11
+      ],
+      "weights": [
+        "400",
+        "500",
+        "600"
+      ],
+      "leftEdges": 2,
+      "accentHues": [],
+      "cards": 0
+    }
+  },
+  {
+    "name": "06-sealed",
+    "fails": [],
+    "warns": [],
+    "facts": {
+      "fonts": {
+        "New York": 2,
+        "SF Pro": 2
+      },
+      "sizes": [
+        60,
+        40,
+        15
+      ],
+      "weights": [
+        "400"
+      ],
+      "leftEdges": 2,
+      "accentHues": [],
+      "cards": 0
+    }
+  },
+  {
+    "name": "07-cover",
+    "fails": [],
+    "warns": [],
+    "facts": {
+      "fonts": {
+        "SF Pro": 4,
+        "New York": 2
+      },
+      "sizes": [
+        48,
+        20,
+        15,
+        13,
+        11
+      ],
+      "weights": [
+        "400",
+        "500",
+        "600"
+      ],
+      "leftEdges": 1,
+      "accentHues": [],
+      "cards": 0
+    }
+  },
+  {
+    "name": "08-entry-text",
+    "fails": [],
+    "warns": [],
+    "facts": {
+      "fonts": {
+        "SF Pro": 3,
+        "New York": 2
+      },
+      "sizes": [
+        28,
+        15,
+        13
+      ],
+      "weights": [
+        "400",
+        "600"
+      ],
+      "leftEdges": 2,
+      "accentHues": [],
+      "cards": 0
+    }
+  },
+  {
+    "name": "09-entry-photo",
+    "fails": [],
+    "warns": [],
+    "facts": {
+      "fonts": {
+        "SF Pro": 2,
+        "New York": 1
+      },
+      "sizes": [
+        28,
+        15,
+        13
+      ],
+      "weights": [
+        "400",
+        "600"
+      ],
+      "leftEdges": 2,
+      "accentHues": [],
+      "cards": 0
+    }
+  },
+  {
+    "name": "10-home-light",
+    "fails": [],
+    "warns": [],
+    "facts": {
+      "fonts": {
+        "New York": 4,
+        "SF Pro": 8
+      },
+      "sizes": [
+        40,
+        28,
+        20,
+        13,
+        11
+      ],
+      "weights": [
+        "400",
+        "600"
+      ],
+      "leftEdges": 3,
+      "accentHues": [],
+      "cards": 0
+    }
+  }
+]

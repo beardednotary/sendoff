@@ -22,8 +22,7 @@ final class SendoffThemeTests: XCTestCase {
     /// Text on the seal (buttons) must be readable.
     func testLabelOnSealMeetsAA() {
         for t in ThemeCatalog.all {
-            let label = t.seal.luminance > 0.5 ? t.ink : t.paper
-            let ratio = label.contrast(with: t.seal)
+            let ratio = t.onSealInk.contrast(with: t.seal)
             XCTAssertGreaterThanOrEqual(ratio, 4.5, "\(t.name): label on seal is \(String(format: "%.2f", ratio)):1")
         }
     }
@@ -94,6 +93,28 @@ final class ModelTests: XCTestCase {
             _ = try await store.submit(cd, to: s.id)
             XCTFail("should throw")
         } catch { }
+    }
+
+    func testRecipientFirstNameKeepsTitles() {
+        var s = MockStore.sampleSendoff
+        s.recipientName = "Maria Reyes"
+        XCTAssertEqual(s.recipientFirstName, "Maria")
+        s.recipientName = "Mr. Patel"
+        XCTAssertEqual(s.recipientFirstName, "Mr. Patel")
+        s.recipientName = "Coach Rivera"
+        XCTAssertEqual(s.recipientFirstName, "Coach Rivera")
+        s.recipientName = "Cher"
+        XCTAssertEqual(s.recipientFirstName, "Cher")
+    }
+
+    func testSealInitialSkipsTitles() {
+        var s = MockStore.sampleSendoff
+        s.recipientName = "Maria Reyes"
+        XCTAssertEqual(s.recipientInitial, "M")
+        s.recipientName = "Mr. Patel"
+        XCTAssertEqual(s.recipientInitial, "P")
+        s.recipientName = " ana"
+        XCTAssertEqual(s.recipientInitial, "A")
     }
 
     func testOccasionPromptsExist() {

@@ -1,47 +1,47 @@
 import SwiftUI
 
-/// The organizer's library. Quiet. The reveal is where color is spent.
+/// The organizer's library: what is in progress as photo cards, what has opened as a list.
 struct HomeView: View {
     @Environment(\.store) private var store
+    @Environment(\.theme) private var theme
     @State private var sendoffs: [Sendoff] = []
     @State private var loading = true
     @State private var showCreate = false
     @State private var path = NavigationPath()
 
-    private let theme = ThemeCatalog.theme(.letterpress)
-
     var body: some View {
         NavigationStack(path: $path) {
             ZStack {
                 Paper()
+                GeometryReader { g in
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 28) {
+                    VStack(alignment: .leading, spacing: 0) {
                         header
                         if loading {
-                            ProgressView().tint(theme.mutedInkColor).frame(maxWidth: .infinity).padding(.top, 60)
+                            ProgressView().tint(theme.faintInkColor).frame(maxWidth: .infinity).padding(.top, 80)
                         } else if sendoffs.isEmpty {
                             empty
                         } else {
-                            VStack(spacing: 14) {
-                                ForEach(sendoffs) { s in
-                                    NavigationLink(value: s) { SendoffRow(sendoff: s) }
-                                        .buttonStyle(.pressable)
+                            if !inProgress.isEmpty {
+                                Eyebrow(text: "In progress").padding(.horizontal, 20).padding(.top, 30)
+                                carousel(height: min(g.size.height * 0.48, 420))
+                            }
+                            if !opened.isEmpty {
+                                Eyebrow(text: "Opened").padding(.horizontal, 20).padding(.top, 32)
+                                VStack(spacing: 0) {
+                                    ForEach(opened) { s in
+                                        NavigationLink(value: s) { OpenedRow(sendoff: s) }
+                                            .buttonStyle(.pressable)
+                                        if s.id != opened.last?.id { Rule() }
+                                    }
                                 }
+                                .padding(.horizontal, 20)
+                                .padding(.top, 4)
                             }
                         }
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 120)
+                    .padding(.bottom, 40)
                 }
-                VStack {
-                    Spacer()
-                    SealButton(title: "Start a Sendoff", systemImage: "plus") { showCreate = true }
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 12)
-                        .background(
-                            LinearGradient(colors: [theme.paperColor.opacity(0), theme.paperColor], startPoint: .top, endPoint: .bottom)
-                                .frame(height: 140).offset(y: -20), alignment: .bottom
-                        )
                 }
             }
             .navigationDestination(for: Sendoff.self) { s in
@@ -56,40 +56,56 @@ struct HomeView: View {
             }
             .task { await load() }
         }
-        .sendoffTheme(theme)
+        .tint(theme.inkColor)
     }
+
+    private var inProgress: [Sendoff] { sendoffs.filter { $0.state != .open } }
+    private var opened: [Sendoff] { sendoffs.filter { $0.state == .open } }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 12) {
-                PathMark(size: 34)
-                Text("Sendoff")
-                    .font(Typeface.title)
-                    .foregroundStyle(theme.inkColor)
+            HStack {
+                PathMark(size: 26, onTile: false)
                 Spacer()
-                Seal(initial: String(store.currentUserName.prefix(1)), size: 36)
+                CircleButton(systemImage: "plus", label: "Start a Sendoff") { showCreate = true }
             }
-            Text(sendoffs.isEmpty ? "Nothing in the post yet." : "\(sendoffs.count) in the post")
-                .font(Typeface.ui)
-                .foregroundStyle(theme.mutedInkColor)
+            .frame(height: 52)
+            Text("Sendoffs")
+                .font(Typeface.display(40)).displayTracking(40)
+                .foregroundStyle(theme.inkColor)
         }
-        .padding(.top, 24)
+        .padding(.horizontal, 20)
+        .padding(.top, 4)
+    }
+
+    private func carousel(height: CGFloat) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            LazyHStack(spacing: 12) {
+                ForEach(inProgress) { s in
+                    NavigationLink(value: s) { SendoffCard(sendoff: s, height: height) }
+                        .buttonStyle(.pressable)
+                }
+            }
+            .scrollTargetLayout()
+            .padding(.horizontal, 20)
+        }
+        .scrollTargetBehavior(.viewAligned)
+        .padding(.top, 12)
     }
 
     private var empty: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Rule()
-            Text("The card that gets passed around the office gets lost. Half the team never sees it. The other half writes \u{201C}good luck\u{201D} because everyone will read it.")
-                .font(Typeface.entry)
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Everyone adds privately.\nOne person opens it, on the day.")
+                .font(Typeface.title).displayTracking(28)
                 .foregroundStyle(theme.inkColor)
-                .lineSpacing(5)
-            Text("A Sendoff is a sealed envelope. Everyone adds privately. One person opens it, once, on the day.")
-                .font(Typeface.entry)
+            Text("The card passed around the office gets lost, and half the team never sees it. A Sendoff is sealed until the day, and only they read it.")
+                .font(Typeface.body)
                 .foregroundStyle(theme.mutedInkColor)
-                .lineSpacing(5)
-            Rule()
+            PrimaryButton(title: "Start a Sendoff", systemImage: "plus", fill: false) { showCreate = true }
+                .padding(.top, 8)
         }
-        .padding(.top, 20)
+        .padding(.horizontal, 20)
+        .padding(.top, 36)
     }
 
     private func load() async {
@@ -99,40 +115,101 @@ struct HomeView: View {
     }
 }
 
-/// A row in the library, drawn in the Sendoff's own theme so the list reads as a shelf.
-struct SendoffRow: View {
+/// A Sendoff in progress: the recipient's photo with their name set on it.
+struct SendoffCard: View {
+    var sendoff: Sendoff
+    var height: CGFloat = 390
+
+    var body: some View {
+        ZStack(alignment: .bottomLeading) {
+            CoverImage(sendoff: sendoff)
+                .frame(width: 268, height: height)
+                .clipped()
+            if sendoff.recipientPhotoURL != nil { Scrim() }
+            VStack(alignment: .leading, spacing: 6) {
+                Eyebrow(text: stateWord, tint: onPhoto.opacity(0.82))
+                Text(sendoff.recipientName)
+                    .font(Typeface.title).displayTracking(28)
+                    .foregroundStyle(onPhoto)
+                    .lineLimit(2)
+                HStack(spacing: 14) {
+                    ForEach(details, id: \.1) { icon, text in
+                        Label(text, systemImage: icon).labelStyle(TightLabel())
+                    }
+                }
+                .font(Typeface.caption)
+                .foregroundStyle(onPhoto.opacity(0.88))
+            }
+            .padding(18)
+        }
+        .frame(width: 268, height: height)
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .accessibilityElement(children: .combine)
+    }
+
+    @Environment(\.theme) private var theme
+    private var onPhoto: Color { sendoff.recipientPhotoURL != nil ? .white : theme.inkColor }
+
+    private var stateWord: String {
+        switch sendoff.state {
+        case .draft: "Draft"
+        case .collecting: "Collecting"
+        case .sealed: "Sealed"
+        case .open: "Open"
+        }
+    }
+
+    private var details: [(String, String)] {
+        switch sendoff.state {
+        case .collecting:
+            var d: [(String, String)] = []
+            if let c = sendoff.closesAt { d.append(("clock", "Closes \(c.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))")) }
+            return d
+        case .sealed:
+            if let o = sendoff.opensAt { return [("lock", "Opens \(o.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))")] }
+            return [("lock", "Opens when you say so")]
+        default: return []
+        }
+    }
+}
+
+/// A Sendoff that has opened: a thumbnail and a line.
+struct OpenedRow: View {
+    @Environment(\.theme) private var theme
     var sendoff: Sendoff
 
     var body: some View {
-        let t = ThemeCatalog.theme(sendoff.themeID)
-        HStack(spacing: 16) {
-            Seal(initial: sendoff.recipientInitial, size: 52)
-            VStack(alignment: .leading, spacing: 5) {
-                Text(sendoff.recipientName)
-                    .font(.system(size: 21, weight: .semibold, design: .serif))
-                    .foregroundStyle(t.inkColor)
-                HStack(spacing: 8) {
-                    Stamp(text: sendoff.occasion.title, tint: t.mutedInkColor)
-                    Text(sendoff.statusLine)
-                        .font(Typeface.caption)
-                        .foregroundStyle(t.mutedInkColor)
-                        .lineLimit(1)
-                }
+        HStack(spacing: 14) {
+            CoverImage(sendoff: sendoff)
+                .frame(width: 56, height: 56)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            VStack(alignment: .leading, spacing: 3) {
+                Text(sendoff.recipientName).font(Typeface.name).foregroundStyle(theme.inkColor)
+                Text(line).font(Typeface.caption).foregroundStyle(theme.faintInkColor)
             }
             Spacer()
-            Image(systemName: "chevron.right")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(t.mutedInkColor)
+            Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(theme.faintInkColor)
         }
-        .padding(16)
-        .background(t.paperColor, in: RoundedRectangle(cornerRadius: t.radius + 6))
-        .overlay(RoundedRectangle(cornerRadius: t.radius + 6).stroke(t.isDark ? Color.clear : t.ruleColor))
-        .shadow(color: .black.opacity(0.08), radius: 10, y: 4)
-        .environment(\.theme, t)
+        .padding(.vertical, 14)
+        .contentShape(Rectangle())
+    }
+
+    private var line: String {
+        var parts = [sendoff.occasion.title]
+        if let o = sendoff.openedAt ?? sendoff.opensAt { parts.append("opened \(o.formatted(.dateTime.month(.abbreviated).day()))") }
+        return parts.joined(separator: " · ")
+    }
+}
+
+/// Icon and title with a tight gap, for metadata on cards.
+struct TightLabel: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 5) { configuration.icon.imageScale(.small); configuration.title }
     }
 }
 
 #Preview {
     let store = MockStore()
-    return HomeView().environment(\.store, store).environment(AppRouter()).environment(PurchaseManager(store: store))
+    return HomeView().appTheme().environment(\.store, store).environment(AppRouter()).environment(PurchaseManager(store: store))
 }

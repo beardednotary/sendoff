@@ -275,23 +275,40 @@ struct Sendoff: Identifiable, Codable, Hashable {
     var isCollecting: Bool { state == .collecting }
     var isOpen: Bool { state == .open }
 
+    /// The letter on the seal: "M" for Maria Reyes, "P" for Mr. Patel.
     var recipientInitial: String {
-        String(recipientName.trimmingCharacters(in: .whitespaces).prefix(1)).uppercased()
+        let call = recipientFirstName.split(separator: " ")
+        let word = call.count > 1 ? call[1] : Substring(recipientName.trimmingCharacters(in: .whitespaces))
+        return String(word.prefix(1)).uppercased()
     }
 
-    var recipientFirstName: String {
-        recipientName.split(separator: " ").first.map(String.init) ?? recipientName
+    /// What to call them mid-sentence: "Maria", or "Mr. Patel" when the name starts with a title.
+    var recipientFirstName: String { Sendoff.callName(recipientName) }
+
+    static func callName(_ recipientName: String) -> String {
+        let words = recipientName.split(separator: " ").map(String.init)
+        guard let first = words.first else { return recipientName }
+        let titles: Set<String> = ["mr", "mrs", "ms", "mx", "miss", "dr", "prof", "coach", "sgt", "capt", "col", "lt", "rev", "fr", "sr", "sister", "brother"]
+        if words.count > 1, titles.contains(first.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "."))) {
+            return "\(first) \(words[1])"
+        }
+        return first
     }
 
     /// "Sealed until Friday, June 12" / "Open" / "Collecting until ..."
-    var statusLine: String {
+    var statusLine: String { status(dateStyle: .dateTime.weekday(.wide).month(.wide).day()) }
+
+    /// "Sealed until Fri, Jun 12", for the library row.
+    var shortStatusLine: String { status(dateStyle: .dateTime.weekday(.abbreviated).month(.abbreviated).day()) }
+
+    private func status(dateStyle: Date.FormatStyle) -> String {
         switch state {
         case .draft: return "Draft"
         case .collecting:
-            if let closesAt { return "Collecting until \(closesAt.formatted(.dateTime.weekday(.wide).month(.wide).day()))" }
+            if let closesAt { return "Collecting until \(closesAt.formatted(dateStyle))" }
             return "Collecting"
         case .sealed:
-            if let opensAt { return "Sealed until \(opensAt.formatted(.dateTime.weekday(.wide).month(.wide).day()))" }
+            if let opensAt { return "Sealed until \(opensAt.formatted(dateStyle))" }
             return "Sealed"
         case .open: return "Open"
         }

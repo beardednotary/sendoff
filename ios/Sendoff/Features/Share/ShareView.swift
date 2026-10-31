@@ -22,95 +22,97 @@ struct ShareView: View {
             ZStack {
                 Paper()
                 ScrollView {
-                    VStack(spacing: 28) {
-                        VStack(spacing: 8) {
-                            Stamp(text: "Share with everyone")
-                            Text("One link. Anyone, any device.")
-                                .font(Typeface.title).foregroundStyle(theme.inkColor)
-                                .multilineTextAlignment(.center)
-                            Text("Contributors don't need the app or an account. Each person only ever sees their own entry.")
-                                .font(Typeface.ui).foregroundStyle(theme.mutedInkColor)
-                                .multilineTextAlignment(.center)
+                    VStack(alignment: .leading, spacing: 0) {
+                        Eyebrow(text: "Invite people")
+                        Text("Share the link.\nGather the words.")
+                            .font(Typeface.display(40)).displayTracking(40)
+                            .foregroundStyle(theme.inkColor)
+                            .padding(.top, 10)
+
+                        card.padding(.top, 28)
+
+                        Text("\(sendoff.recipientFirstName) gets a different link on the day. It stays sealed until then.")
+                            .font(Typeface.caption).foregroundStyle(theme.faintInkColor)
+                            .padding(.top, 16)
+                        ShareLink(item: sendoff.revealURL) {
+                            PillLabel(title: "Share \(sendoff.recipientFirstName)'s own link", systemImage: "envelope", fill: false, small: true)
+                                .foregroundStyle(theme.inkColor)
+                                .background(theme.controlColor, in: Capsule())
                         }
-                        .padding(.top, 20)
-
-                        if let img = QR.image(for: sendoff.shareURL.absoluteString, ink: theme.ink, paper: theme.paper) {
-                            Image(uiImage: img)
-                                .interpolation(.none)
-                                .resizable()
-                                .frame(width: 200, height: 200)
-                                .padding(16)
-                                .background(theme.paperColor, in: RoundedRectangle(cornerRadius: theme.radius))
-                                .overlay(RoundedRectangle(cornerRadius: theme.radius).stroke(theme.ruleColor))
-                                .overlay(Seal(initial: sendoff.recipientInitial, size: 44))
-                        }
-
-                        VStack(spacing: 10) {
-                            Button {
-                                UIPasteboard.general.string = sendoff.shareURL.absoluteString
-                                withAnimation(Motion.tap) { copied = true }
-                                Task { try? await Task.sleep(for: .seconds(1.6)); withAnimation { copied = false } }
-                            } label: {
-                                HStack {
-                                    Text(sendoff.shareURL.absoluteString.replacingOccurrences(of: "https://", with: ""))
-                                        .font(.system(size: 16, weight: .medium, design: .monospaced))
-                                        .foregroundStyle(theme.inkColor)
-                                    Spacer()
-                                    Text(copied ? "Copied" : "Copy").font(Typeface.caption).foregroundStyle(theme.sealColor)
-                                }
-                                .padding(14)
-                                .background(theme.raisedPaperColor, in: RoundedRectangle(cornerRadius: theme.radius))
-                                .overlay(RoundedRectangle(cornerRadius: theme.radius).stroke(theme.ruleColor))
-                            }
-                            .buttonStyle(.pressable)
-
-                            ShareLink(item: message) {
-                                HStack(spacing: 8) {
-                                    Image(systemName: "square.and.arrow.up")
-                                    Text("Send the link")
-                                }
-                                .font(.system(size: 18, weight: .semibold, design: .serif))
-                                .foregroundStyle(theme.onSealColor)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 16)
-                                .background(theme.sealColor, in: RoundedRectangle(cornerRadius: theme.radius + 6))
-                            }
-                            .buttonStyle(.pressable)
-
-                            if let img = QR.image(for: sendoff.shareURL.absoluteString, ink: theme.ink, paper: theme.paper, scale: 12) {
-                                ShareLink(item: Image(uiImage: img), preview: SharePreview("Sendoff for \(sendoff.recipientName)", image: Image(uiImage: img))) {
-                                    HStack(spacing: 8) {
-                                        Image(systemName: "qrcode")
-                                        Text("Save the QR code for a poster")
-                                    }
-                                    .font(Typeface.uiStrong)
-                                    .foregroundStyle(theme.inkColor)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 14)
-                                    .overlay(RoundedRectangle(cornerRadius: theme.radius + 6).stroke(theme.inkColor.opacity(0.35)))
-                                }
-                                .buttonStyle(.pressable)
-                            }
-                        }
-
-                        Rule()
-
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Recipient's link").font(Typeface.uiStrong).foregroundStyle(theme.inkColor)
-                            Text("Different from the one above. Give it to \(sendoff.recipientFirstName) on the day, or print its QR code inside a card. It stays sealed until the reveal.")
-                                .font(Typeface.caption).foregroundStyle(theme.mutedInkColor)
-                            ShareLink(item: sendoff.revealURL) {
-                                Label("Share \(sendoff.recipientFirstName)'s link", systemImage: "envelope")
-                                    .font(Typeface.uiStrong).foregroundStyle(theme.sealColor)
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .buttonStyle(.pressable)
+                        .padding(.top, 12)
                     }
-                    .padding(20)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 12)
+                    .padding(.bottom, 40)
                 }
             }
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.foregroundStyle(theme.inkColor) } }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button { dismiss() } label: { Image(systemName: "xmark") }.accessibilityLabel("Close")
+                }
+            }
         }
+        .tint(theme.inkColor)
+    }
+
+    private var card: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 14) {
+                CoverImage(sendoff: sendoff)
+                    .frame(width: 48, height: 48)
+                    .clipShape(Circle())
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("For \(sendoff.recipientFirstName), from everyone").font(Typeface.name).foregroundStyle(theme.inkColor)
+                    Button {
+                        UIPasteboard.general.string = sendoff.shareURL.absoluteString
+                        withAnimation(Motion.tap) { copied = true }
+                        Task { try? await Task.sleep(for: .seconds(1.6)); withAnimation { copied = false } }
+                    } label: {
+                        Text(copied ? "Copied" : sendoff.shareURL.absoluteString.replacingOccurrences(of: "https://", with: ""))
+                            .font(Typeface.caption).foregroundStyle(theme.faintInkColor)
+                            .lineLimit(1).truncationMode(.middle)
+                    }
+                    .accessibilityHint("Copies the link")
+                }
+            }
+
+            if let img = QR.image(for: sendoff.shareURL.absoluteString, ink: "#0E0E0D", paper: "#F3F1EC") {
+                Image(uiImage: img)
+                    .interpolation(.none)
+                    .resizable()
+                    .frame(width: 168, height: 168)
+                    .padding(16)
+                    .background(Color(red: 0.953, green: 0.945, blue: 0.925), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 22)
+                    .accessibilityLabel("QR code for the link")
+            }
+
+            Text("Anyone with the link can add a note, a photo, a voice memo or a short video. Only \(sendoff.recipientFirstName) and you will read them.")
+                .font(Typeface.body).foregroundStyle(theme.mutedInkColor)
+                .padding(.top, 20)
+
+            HStack(spacing: 10) {
+                ShareLink(item: message) {
+                    PillLabel(title: "Share link", systemImage: "square.and.arrow.up")
+                        .foregroundStyle(theme.onSealColor)
+                        .background(theme.sealColor, in: Capsule())
+                }
+                .buttonStyle(.pressable)
+                if let img = QR.image(for: sendoff.shareURL.absoluteString, ink: "#0E0E0D", paper: "#FFFFFF", scale: 12) {
+                    ShareLink(item: Image(uiImage: img), preview: SharePreview("Sendoff for \(sendoff.recipientName)", image: Image(uiImage: img))) {
+                        PillLabel(title: "Save QR", systemImage: "arrow.down.to.line")
+                            .foregroundStyle(theme.inkColor)
+                            .background(theme.controlColor, in: Capsule())
+                    }
+                    .buttonStyle(.pressable)
+                }
+            }
+            .padding(.top, 18)
+        }
+        .padding(20)
+        .background(theme.raisedPaperColor, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
     }
 }
 
@@ -133,5 +135,5 @@ enum QR {
 }
 
 #Preview {
-    ShareView(sendoff: MockStore.sampleCollecting).sendoffTheme(ThemeCatalog.theme(.letterpress))
+    ShareView(sendoff: MockStore.sampleCollecting).appTheme()
 }

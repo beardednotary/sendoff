@@ -1,51 +1,29 @@
 import SwiftUI
 
-// The four marks of Sendoff: Seal, Flap, Stamp, Ribbon. Plus the paper they sit on.
-// Nothing here is an illustration. Everything is geometry and type.
+// The pieces every screen is built from. No illustration and no ornament: the photographs and
+// the words people wrote are the only colour. See design/v2/DIRECTION.md.
 
-// MARK: - Paper
+// MARK: - Ground
 
-/// The page itself: theme paper with a faint texture so it never reads as flat UI.
+/// The page: the theme's paper, flat, edge to edge.
 struct Paper: View {
     @Environment(\.theme) private var theme
 
     var body: some View {
-        ZStack {
-            theme.paperColor
-            PaperGrain(texture: theme.texture)
-                .blendMode(theme.isDark ? .plusLighter : .multiply)
-                .opacity(theme.isDark ? 0.08 : 0.35)
-        }
-        .ignoresSafeArea()
+        theme.paperColor.ignoresSafeArea()
     }
 }
 
-/// Cheap procedural texture. Deterministic so it does not shimmer between frames.
-struct PaperGrain: View {
-    var texture: PaperTexture
-
-    var body: some View {
-        Canvas { ctx, size in
-            var rng = SeededRandom(seed: 7)
-            let count: Int
-            let dot: CGFloat
-            switch texture {
-            case .paper: count = 1800; dot = 1.2
-            case .linen: count = 900; dot = 1.6
-            case .chalk: count = 2600; dot = 0.9
-            case .grain: count = 3200; dot = 0.8
-            case .grass: count = 1200; dot = 1.4
-            }
-            for _ in 0..<count {
-                let x = CGFloat(rng.next()) * size.width
-                let y = CGFloat(rng.next()) * size.height
-                let a = 0.15 + rng.next() * 0.35
-                let rect = CGRect(x: x, y: y, width: dot, height: texture == .linen ? dot * 3 : dot)
-                ctx.fill(Path(ellipseIn: rect), with: .color(.black.opacity(a)))
-            }
-        }
-        .allowsHitTesting(false)
+/// The organizer's screens follow the system appearance: Evening in dark mode, Paper in light.
+struct AppThemeModifier: ViewModifier {
+    @Environment(\.colorScheme) private var scheme
+    func body(content: Content) -> some View {
+        content.environment(\.theme, ThemeCatalog.app(scheme))
     }
+}
+
+extension View {
+    func appTheme() -> some View { modifier(AppThemeModifier()) }
 }
 
 struct SeededRandom {
@@ -59,295 +37,172 @@ struct SeededRandom {
 
 // MARK: - Seal
 
-/// A wax seal: slightly irregular circle with the recipient's initial.
+/// The seal: the recipient's initial inside two fine rings, blind-embossed, no colour.
+/// `progress` draws the outer ring closed while the recipient holds it open.
 struct Seal: View {
     @Environment(\.theme) private var theme
     var initial: String
     var size: CGFloat = 88
-    var cracked: Bool = false
+    var progress: Double = 0
+    var ink: Color? = nil
 
     var body: some View {
+        let color = ink ?? theme.inkColor
         ZStack {
-            SealShape()
-                .fill(sealFill)
-                .overlay(
-                    SealShape()
-                        .stroke(theme.onSealColor.opacity(0.18), lineWidth: 1)
-                        .padding(size * 0.11)
-                )
-                .shadow(color: .black.opacity(theme.isDark ? 0.5 : 0.22), radius: size * 0.08, y: size * 0.05)
-
+            Circle().strokeBorder(color.opacity(progress > 0 ? 0.3 : 1), lineWidth: 1)
+            Circle()
+                .trim(from: 0, to: progress)
+                .stroke(color, style: StrokeStyle(lineWidth: max(1.5, size * 0.014), lineCap: .round))
+                .rotationEffect(.degrees(-90))
+                .padding(max(0.75, size * 0.007))
+            Circle().strokeBorder(color.opacity(0.18), lineWidth: 1).padding(size * 0.05)
             Text(initial)
-                .font(.system(size: size * 0.46, weight: .semibold, design: .serif))
-                .foregroundStyle(theme.onSealColor)
-                .offset(y: size * 0.01)
-
-            if cracked {
-                SealCrack()
-                    .stroke(theme.onSealColor.opacity(0.7), style: StrokeStyle(lineWidth: max(1, size * 0.02), lineCap: .round))
-            }
+                .font(.system(size: size * 0.43, weight: .regular, design: .serif))
+                .foregroundStyle(color)
         }
         .frame(width: size, height: size)
         .accessibilityLabel("Seal with the letter \(initial)")
     }
-
-    private var sealFill: AnyShapeStyle {
-        if theme.foil {
-            return AnyShapeStyle(
-                LinearGradient(colors: [theme.sealColor, theme.sealColor.opacity(0.75), Color.white.opacity(0.6), theme.sealColor],
-                               startPoint: .topLeading, endPoint: .bottomTrailing)
-            )
-        }
-        return AnyShapeStyle(
-            RadialGradient(colors: [theme.sealColor.opacity(0.92), theme.sealColor],
-                           center: .init(x: 0.38, y: 0.32), startRadius: 0, endRadius: size * 0.7)
-        )
-    }
 }
 
-/// A circle whose edge wobbles a little, like pressed wax.
-struct SealShape: Shape {
-    func path(in rect: CGRect) -> Path {
-        let c = CGPoint(x: rect.midX, y: rect.midY)
-        let r = min(rect.width, rect.height) / 2
-        var p = Path()
-        let steps = 72
-        for i in 0...steps {
-            let t = Double(i) / Double(steps) * .pi * 2
-            let wobble = 1 + 0.028 * sin(t * 7 + 0.4) + 0.016 * cos(t * 11)
-            let pt = CGPoint(x: c.x + cos(t) * r * wobble, y: c.y + sin(t) * r * wobble)
-            if i == 0 { p.move(to: pt) } else { p.addLine(to: pt) }
-        }
-        p.closeSubpath()
-        return p
-    }
-}
+// MARK: - Labels
 
-struct SealCrack: Shape {
-    func path(in rect: CGRect) -> Path {
-        var p = Path()
-        p.move(to: CGPoint(x: rect.minX + rect.width * 0.18, y: rect.minY + rect.height * 0.42))
-        p.addLine(to: CGPoint(x: rect.minX + rect.width * 0.46, y: rect.minY + rect.height * 0.55))
-        p.addLine(to: CGPoint(x: rect.minX + rect.width * 0.58, y: rect.minY + rect.height * 0.44))
-        p.addLine(to: CGPoint(x: rect.minX + rect.width * 0.84, y: rect.minY + rect.height * 0.6))
-        return p
-    }
-}
-
-// MARK: - Flap
-
-/// The envelope flap. A shallow triangle that lifts on its top edge.
-struct Flap: Shape {
-    func path(in rect: CGRect) -> Path {
-        var p = Path()
-        p.move(to: CGPoint(x: rect.minX, y: rect.minY))
-        p.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
-        p.addLine(to: CGPoint(x: rect.midX, y: rect.maxY))
-        p.closeSubpath()
-        return p
-    }
-}
-
-// MARK: - Stamp
-
-/// Small caps inside a dashed border. Marks an occasion, a status or a signature.
-struct Stamp: View {
+/// Tracked uppercase label that sits above a headline: "NEW JOB", "IN THE ENVELOPE · 7".
+struct Eyebrow: View {
     @Environment(\.theme) private var theme
     var text: String
     var tint: Color? = nil
 
     var body: some View {
         Text(text.uppercased())
-            .font(Typeface.stamp)
-            .kerning(1.1)
-            .foregroundStyle(tint ?? theme.mutedInkColor)
-            .padding(.horizontal, 9)
-            .padding(.vertical, 5)
-            .overlay(
-                RoundedRectangle(cornerRadius: 3)
-                    .strokeBorder(style: StrokeStyle(lineWidth: 1, dash: [3, 2.5]))
-                    .foregroundStyle((tint ?? theme.mutedInkColor).opacity(0.7))
-            )
+            .font(Typeface.eyebrow)
+            .tracking(1.5)
+            .lineLimit(1)
+            .foregroundStyle(tint ?? theme.faintInkColor)
     }
 }
 
-// MARK: - Ribbon
-
-/// A thin band that wraps a cover. Carries the count.
-struct Ribbon: View {
+/// An icon and a line of state: "Collecting until Sunday, November 8".
+struct MetaLine: View {
     @Environment(\.theme) private var theme
+    var systemImage: String
     var text: String
 
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Image(systemName: systemImage)
+                .font(.system(size: 15))
+                .foregroundStyle(theme.faintInkColor)
+                .frame(width: 20)
             Text(text)
-                .font(Typeface.uiStrong)
-                .foregroundStyle(theme.onSealColor)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 7)
-                .background(theme.sealColor)
-            RibbonTail()
-                .fill(theme.sealColor)
-                .frame(width: 10)
+                .font(Typeface.body)
+                .foregroundStyle(theme.mutedInkColor)
         }
-        .fixedSize()
-        .shadow(color: .black.opacity(0.18), radius: 2, y: 1)
     }
 }
 
-struct RibbonTail: Shape {
-    func path(in rect: CGRect) -> Path {
-        var p = Path()
-        p.move(to: CGPoint(x: rect.minX, y: rect.minY))
-        p.addLine(to: CGPoint(x: rect.maxX, y: rect.midY))
-        p.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
-        p.closeSubpath()
-        return p
-    }
-}
-
-// MARK: - Rule
-
-/// A hairline. Chalk themes get a slightly rough one.
+/// A hairline.
 struct Rule: View {
     @Environment(\.theme) private var theme
     var body: some View {
-        Rectangle()
-            .fill(theme.ruleColor)
-            .frame(height: 1)
-    }
-}
-
-// MARK: - Envelope
-
-/// The sealed envelope shown to a recipient. Tap the seal to break it.
-struct Envelope: View {
-    @Environment(\.theme) private var theme
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    var sendoff: Sendoff
-    var contributorCount: Int
-    var opened: Bool
-
-    var body: some View {
-        GeometryReader { geo in
-            let w = geo.size.width
-            let h = w * 0.72
-            ZStack(alignment: .top) {
-                // Body
-                RoundedRectangle(cornerRadius: theme.radius)
-                    .fill(theme.raisedPaperColor)
-                    .overlay(RoundedRectangle(cornerRadius: theme.radius).stroke(theme.ruleColor))
-                    .frame(width: w, height: h)
-                    .shadow(color: .black.opacity(theme.isDark ? 0.45 : 0.14), radius: 18, y: 10)
-
-                // Address block
-                VStack(spacing: 6) {
-                    Text("To")
-                        .font(Typeface.caption)
-                        .foregroundStyle(theme.mutedInkColor)
-                    Text(sendoff.recipientName)
-                        .font(Typeface.display(min(34, w * 0.09)))
-                        .foregroundStyle(theme.inkColor)
-                        .multilineTextAlignment(.center)
-                        .minimumScaleFactor(0.7)
-                    if let from = sendoff.fromLine {
-                        Text(from)
-                            .font(Typeface.signature)
-                            .foregroundStyle(theme.mutedInkColor)
-                    }
-                }
-                .frame(width: w * 0.8)
-                .offset(y: h * 0.64)
-
-                // Flap
-                Flap()
-                    .fill(theme.paperColor.opacity(0.98))
-                    .overlay(Flap().stroke(theme.ruleColor))
-                    .frame(width: w, height: h * 0.48)
-                    .rotation3DEffect(
-                        .degrees(opened ? -168 : 0),
-                        axis: (x: 1, y: 0, z: 0),
-                        anchor: .top,
-                        perspective: 0.6
-                    )
-                    .zIndex(opened ? 0 : 2)
-                    .shadow(color: .black.opacity(opened ? 0 : 0.12), radius: 6, y: 4)
-
-                // Seal sits on the flap tip
-                Seal(initial: sendoff.recipientInitial, size: w * 0.2, cracked: opened)
-                    .offset(y: h * 0.48 - w * 0.1)
-                    .scaleEffect(opened ? 0.85 : 1)
-                    .opacity(opened ? 0 : 1)
-                    .zIndex(3)
-
-                // Ribbon with the count
-                Ribbon(text: "\(contributorCount) people")
-                    .rotationEffect(.degrees(-4))
-                    .offset(x: -w * 0.33, y: h * 0.12)
-                    .zIndex(4)
-            }
-            .frame(width: w, height: h)
-            .animation(reduceMotion ? Motion.fade : Motion.lift, value: opened)
-        }
-        .aspectRatio(1 / 0.72, contentMode: .fit)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Sealed envelope for \(sendoff.recipientName) from \(contributorCount) people")
+        Rectangle().fill(theme.ruleColor).frame(height: 1)
     }
 }
 
 // MARK: - Buttons
 
-/// The one important action on a screen. Seal colored, serif label.
-struct SealButton: View {
+/// The one important action on a screen: a filled pill in the theme's seal colour.
+struct PrimaryButton: View {
     @Environment(\.theme) private var theme
     var title: String
     var systemImage: String? = nil
+    var fill = true
     var action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 8) {
-                if let systemImage { Image(systemName: systemImage) }
-                Text(title)
-            }
-            .font(.system(size: 18, weight: .semibold, design: .serif))
-            .foregroundStyle(theme.onSealColor)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
-            .background(theme.sealColor, in: RoundedRectangle(cornerRadius: theme.radius + 6))
+            PillLabel(title: title, systemImage: systemImage, fill: fill)
+                .foregroundStyle(theme.onSealColor)
+                .background(theme.sealColor, in: Capsule())
         }
         .buttonStyle(.pressable)
     }
 }
 
 /// Everything that is not the one important action.
-struct QuietButton: View {
+struct SecondaryButton: View {
     @Environment(\.theme) private var theme
     var title: String
     var systemImage: String? = nil
+    var fill = true
     var action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 8) {
-                if let systemImage { Image(systemName: systemImage) }
-                Text(title)
-            }
-            .font(Typeface.uiStrong)
-            .foregroundStyle(theme.inkColor)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
-            .overlay(RoundedRectangle(cornerRadius: theme.radius + 6).stroke(theme.inkColor.opacity(0.35), lineWidth: 1))
+            PillLabel(title: title, systemImage: systemImage, fill: fill)
+                .foregroundStyle(theme.inkColor)
+                .background(theme.controlColor, in: Capsule())
         }
         .buttonStyle(.pressable)
+    }
+}
+
+/// The inside of a pill, for links and share sheets that bring their own button.
+struct PillLabel: View {
+    var title: String
+    var systemImage: String? = nil
+    var fill = true
+    var small = false
+    /// Arrows go after the word: "Begin →".
+    var iconTrailing = false
+
+    var body: some View {
+        HStack(spacing: 8) {
+            if let systemImage, !iconTrailing { icon(systemImage) }
+            Text(title).lineLimit(1)
+            if let systemImage, iconTrailing { icon(systemImage) }
+        }
+        .font(.system(size: small ? 15 : 17, weight: small ? .medium : .semibold))
+        .padding(.horizontal, small ? 16 : 22)
+        .frame(maxWidth: fill ? .infinity : nil)
+        .frame(height: small ? 44 : 50)
+        .contentShape(Capsule())
+    }
+
+    private func icon(_ name: String) -> some View {
+        Image(systemName: name).font(.system(size: small ? 14 : 16, weight: .medium))
+    }
+}
+
+/// A 44pt round button for close, back and more.
+struct CircleButton: View {
+    @Environment(\.theme) private var theme
+    var systemImage: String
+    var label: String
+    var onImage = false
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(onImage ? Color.white : theme.inkColor)
+                .frame(width: 44, height: 44)
+                .background {
+                    if onImage { Circle().fill(.ultraThinMaterial).environment(\.colorScheme, .dark) }
+                    else { Circle().fill(theme.controlColor) }
+                }
+        }
+        .buttonStyle(.pressable)
+        .accessibilityLabel(label)
     }
 }
 
 struct PressableButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.975 : 1)
-            .opacity(configuration.isPressed ? 0.9 : 1)
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .opacity(configuration.isPressed ? 0.88 : 1)
             .animation(Motion.tap, value: configuration.isPressed)
     }
 }
@@ -356,64 +211,109 @@ extension ButtonStyle where Self == PressableButtonStyle {
     static var pressable: PressableButtonStyle { PressableButtonStyle() }
 }
 
-// MARK: - Entry card
+// MARK: - Cover
 
-/// One contribution, read on its own. Never in a grid in the reveal.
+/// The recipient's photo, or, without one, their initial set large on the raised surface.
+struct CoverImage: View {
+    @Environment(\.theme) private var theme
+    var sendoff: Sendoff
+
+    var body: some View {
+        if let url = sendoff.recipientPhotoURL {
+            // Fill whatever frame it is given, never more: a bare scaledToFill widens its parent.
+            Color.clear
+                .overlay(RemoteImage(url: url).scaledToFill())
+                .clipped()
+        } else {
+            GeometryReader { g in
+                let side = min(g.size.width, g.size.height)
+                ZStack {
+                    theme.raisedPaperColor
+                    Text(sendoff.recipientInitial)
+                        .font(.system(size: side * (side < 100 ? 0.5 : 0.62), weight: .regular, design: .serif))
+                        .foregroundStyle(theme.inkColor.opacity(side < 100 ? 0.5 : 0.07))
+                }
+                .frame(width: g.size.width, height: g.size.height)
+            }
+        }
+    }
+}
+
+/// Darkens the bottom of a photo so white type reads on it.
+struct Scrim: View {
+    var from: Double = 0.35
+    var to: Double = 0.8
+    var body: some View {
+        LinearGradient(stops: [.init(color: .black.opacity(0), location: from), .init(color: .black.opacity(to), location: 1)],
+                       startPoint: .top, endPoint: .bottom)
+    }
+}
+
+// MARK: - Entry
+
+/// One contribution, read on its own, with nothing around it. Text is sized by its length.
 struct EntryPage: View {
     @Environment(\.theme) private var theme
     var contribution: Contribution
+    var compact = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 22) {
+        VStack(alignment: .leading, spacing: compact ? 14 : 24) {
             if !contribution.photos.isEmpty {
-                PhotoStack(photos: contribution.photos)
+                PhotoPager(photos: contribution.photos)
+                    .frame(height: compact ? 200 : 380)
             }
             if let video = contribution.video {
                 VideoTile(media: video)
             }
             if let voice = contribution.voice {
-                VoiceTile(media: voice)
+                VoiceTile(media: voice, large: !compact)
             }
             if let body = contribution.body, contribution.hasText {
                 Text(body)
-                    .font(Typeface.entry)
-                    .lineSpacing(6)
+                    .font(compact ? Typeface.body : Typeface.entry(length: body.count))
+                    .lineSpacing(compact ? 2 : 4)
                     .foregroundStyle(theme.inkColor)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Rectangle().fill(theme.sealColor).frame(width: 22, height: 2).offset(y: -4)
-                Text(contribution.signature)
-                    .font(Typeface.signature)
-                    .foregroundStyle(theme.mutedInkColor)
-            }
+            SignatureLine(contribution: contribution)
         }
-        .padding(24)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(theme.raisedPaperColor, in: RoundedRectangle(cornerRadius: theme.radius + 4))
-        .overlay(RoundedRectangle(cornerRadius: theme.radius + 4).stroke(theme.ruleColor))
     }
 }
 
-/// Photos drop in with a tiny rotation that settles.
-struct PhotoStack: View {
+/// "— Dan Okafor · Your manager, somehow"
+struct SignatureLine: View {
     @Environment(\.theme) private var theme
-    var photos: [Media]
+    var contribution: Contribution
 
     var body: some View {
-        ZStack {
-            ForEach(Array(photos.prefix(3).enumerated()), id: \.element.id) { i, m in
-                RemoteImage(url: m.url ?? m.localURL)
-                    .aspectRatio(4/3, contentMode: .fill)
-                    .frame(maxWidth: .infinity)
+        HStack(alignment: .center, spacing: 12) {
+            Rectangle().fill(theme.faintInkColor).frame(width: 24, height: 1)
+            (Text(contribution.authorName).font(Typeface.signature).foregroundColor(theme.inkColor)
+             + Text(contribution.authorRelationship.map { $0.isEmpty ? "" : " · \($0)" } ?? "")
+                .font(Typeface.body).foregroundColor(theme.faintInkColor))
+        }
+    }
+}
+
+/// Photos, one at a time, inset with rounded corners. Swipe between them.
+struct PhotoPager: View {
+    @Environment(\.theme) private var theme
+    var photos: [Media]
+    @State private var index = 0
+
+    var body: some View {
+        TabView(selection: $index) {
+            ForEach(Array(photos.enumerated()), id: \.element.id) { i, m in
+                Color.clear
+                    .overlay(RemoteImage(url: m.url ?? m.localURL).scaledToFill())
                     .clipped()
-                    .padding(6)
-                    .background(Color.white, in: RoundedRectangle(cornerRadius: 3))
-                    .shadow(color: .black.opacity(0.18), radius: 6, y: 3)
-                    .rotationEffect(.degrees(Double(i - 1) * 2.2))
-                    .offset(x: CGFloat(i - 1) * 6, y: CGFloat(i) * -4)
+                    .tag(i)
             }
         }
+        .tabViewStyle(.page(indexDisplayMode: photos.count > 1 ? .always : .never))
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
 }
 
@@ -421,13 +321,13 @@ struct RemoteImage: View {
     @Environment(\.theme) private var theme
     var url: URL?
     var body: some View {
-        AsyncImage(url: url) { phase in
+        AsyncImage(url: url, transaction: Transaction(animation: Motion.fade)) { phase in
             switch phase {
             case .success(let img): img.resizable()
             default:
                 ZStack {
-                    theme.accentColor
-                    Image(systemName: "photo").foregroundStyle(theme.mutedInkColor)
+                    theme.controlColor
+                    Image(systemName: "photo").foregroundStyle(theme.faintInkColor)
                 }
             }
         }
@@ -437,34 +337,35 @@ struct RemoteImage: View {
 struct VoiceTile: View {
     @Environment(\.theme) private var theme
     var media: Media
+    var large = true
     @State private var playing = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: large ? 22 : 12) {
+            Waveform(progress: playing ? 0.4 : 0)
+                .frame(height: large ? 96 : 40)
             HStack(spacing: 14) {
                 Button { playing.toggle() } label: {
                     Image(systemName: playing ? "pause.fill" : "play.fill")
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.system(size: large ? 20 : 15, weight: .semibold))
                         .foregroundStyle(theme.onSealColor)
-                        .frame(width: 44, height: 44)
+                        .frame(width: large ? 60 : 44, height: large ? 60 : 44)
                         .background(theme.sealColor, in: Circle())
                 }
                 .buttonStyle(.pressable)
-                Waveform(progress: playing ? 0.4 : 0)
-                    .frame(height: 36)
+                .accessibilityLabel(playing ? "Pause" : "Play voice note")
                 Text(duration)
-                    .font(Typeface.caption.monospacedDigit())
+                    .font(Typeface.body.monospacedDigit())
                     .foregroundStyle(theme.mutedInkColor)
             }
             if let t = media.transcript {
-                Text(t)
-                    .font(Typeface.caption)
-                    .foregroundStyle(theme.mutedInkColor)
-                    .lineLimit(3)
+                Text("\u{201C}\(t)\u{201D}")
+                    .font(large ? Typeface.entry(length: t.count) : Typeface.body)
+                    .lineSpacing(large ? 4 : 2)
+                    .foregroundStyle(theme.inkColor)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(14)
-        .background(theme.accentColor.opacity(theme.isDark ? 0.5 : 0.35), in: RoundedRectangle(cornerRadius: theme.radius + 2))
     }
 
     private var duration: String {
@@ -477,24 +378,25 @@ struct VoiceTile: View {
 struct Waveform: View {
     @Environment(\.theme) private var theme
     var progress: Double
-    var bars: Int = 36
+    var bars: Int = 44
 
     var body: some View {
         Canvas { ctx, size in
             var rng = SeededRandom(seed: 11)
-            let gap: CGFloat = 2.5
+            let gap: CGFloat = 3
             let bw = (size.width - gap * CGFloat(bars - 1)) / CGFloat(bars)
             for i in 0..<bars {
-                let amp = 0.25 + rng.next() * 0.75
+                let amp = 0.18 + rng.next() * 0.82
                 let h = size.height * amp
                 let x = CGFloat(i) * (bw + gap)
                 let rect = CGRect(x: x, y: (size.height - h) / 2, width: bw, height: h)
                 let played = Double(i) / Double(bars) < progress
                 ctx.fill(Path(roundedRect: rect, cornerRadius: bw / 2),
-                         with: .color(played ? theme.sealColor : theme.inkColor.opacity(0.35)))
+                         with: .color(played ? theme.inkColor : theme.inkColor.opacity(0.28)))
             }
         }
         .animation(.linear(duration: 0.3), value: progress)
+        .accessibilityHidden(true)
     }
 }
 
@@ -505,23 +407,24 @@ struct VideoTile: View {
     var body: some View {
         ZStack {
             RemoteImage(url: media.posterURL)
-                .aspectRatio(16/9, contentMode: .fill)
+                .aspectRatio(4/5, contentMode: .fill)
                 .clipped()
             Image(systemName: "play.fill")
-                .font(.system(size: 22, weight: .bold))
-                .foregroundStyle(theme.onSealColor)
-                .frame(width: 60, height: 60)
-                .background(theme.sealColor, in: Circle())
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 64, height: 64)
+                .background(.ultraThinMaterial, in: Circle())
+                .environment(\.colorScheme, .dark)
         }
-        .clipShape(RoundedRectangle(cornerRadius: theme.radius + 2))
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay(alignment: .bottomTrailing) {
             if let d = media.durationSeconds {
                 Text(String(format: "%d:%02d", Int(d) / 60, Int(d) % 60))
                     .font(Typeface.caption.monospacedDigit())
                     .foregroundStyle(.white)
-                    .padding(.horizontal, 8).padding(.vertical, 4)
+                    .padding(.horizontal, 9).padding(.vertical, 5)
                     .background(.black.opacity(0.5), in: Capsule())
-                    .padding(10)
+                    .padding(12)
             }
         }
     }

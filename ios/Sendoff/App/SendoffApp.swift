@@ -34,11 +34,12 @@ struct RootView: View {
 
     var body: some View {
         HomeView()
-            .sheet(item: Binding(get: { router.pending }, set: { router.pending = $0 })) { dest in
-                switch dest {
-                case .contribute(let slug): ContributeFlow(slug: slug)
-                case .reveal(let slug): RevealLoader(slug: slug)
-                }
+            .appTheme()
+            .sheet(item: Binding(get: { router.pending.flatMap { $0.isReveal ? nil : $0 } }, set: { router.pending = $0 })) { dest in
+                if case .contribute(let slug) = dest { ContributeFlow(slug: slug) }
+            }
+            .fullScreenCover(item: Binding(get: { router.pending.flatMap { $0.isReveal ? $0 : nil } }, set: { router.pending = $0 })) { dest in
+                if case .reveal(let slug) = dest { RevealLoader(slug: slug) }
             }
     }
 }

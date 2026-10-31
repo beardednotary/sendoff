@@ -59,7 +59,7 @@ recipients who do have it (library, offline keepsake, exports, Apple Music playb
 |---|---|
 | `App/` | `SendoffApp` entry, `AppConfig` (domain, keys from xcconfig), `AppRouter` (deep links `sendoffapp.com/s/{slug}`), environment wiring |
 | `Models/` | `Sendoff`, `Contribution`, `Occasion`, `MusicTrack`, `ModerationMode`, `RevealPolicy` |
-| `Design/` | `SendoffTheme` (data), `ThemeCatalog`, `Typography`, `Motion`, and `Components/` (Seal, Flap, Stamp, Ribbon, Envelope, Waveform) |
+| `Design/` | `SendoffTheme` (data), `ThemeCatalog`, `Typeface`, `Motion`, and `Components/` (Seal, Eyebrow, buttons, CoverImage, EntryPage, Waveform) |
 | `Features/` | One folder per flow: `Home`, `Create`, `Contribute`, `Admin`, `Reveal`, `Share` |
 | `Services/` | `SendoffStore` protocol with `MockStore` (previews, tests, offline demo) and `SupabaseStore` |
 
@@ -135,7 +135,7 @@ design can be reviewed with `npm run dev` and nothing else. See `web/app/README.
 | Route | Who | What |
 |---|---|---|
 | `/s/{slug}` | Contributor | Add a note, photos, voice note or video. No account. |
-| `/s/{slug}/open?k={recipient_key}` | Recipient | The sealed envelope. Breaks open at `opens_at`. Music, one entry at a time, keepsake at the end. |
+| `/s/{slug}/open?k={recipient_key}` | Recipient | The seal over their photo, held to open once `opens_at` passes. Music, one entry at a time, keepsake at the end. |
 | `/s/{slug}/qr?t={token}` | Organizer | Printable QR card for the party, the break room or inside a physical card. |
 
 Web privacy, concretely: contributors get an anonymous Supabase session so RLS has an `auth.uid()`
@@ -168,7 +168,7 @@ reads `VITE_PUBLIC_ORIGIN`. Three things must point at it:
 1. Client uploads to Storage bucket `uploads/{sendoff}/{contribution}/{uuid}` with a signed
    upload URL (60s video / 2 min voice caps enforced client-side and by an Edge Function that
    rejects over-length files).
-2. A database webhook on `media` insert calls the `process-media` Edge Function
+2. A trigger on `media` insert (`0004_media_webhook.sql`, pg_net) calls the `process-media` Edge Function
    (`supabase/functions/process-media`). It enforces the length caps server-side and moves status
    `uploaded → processing → ready`. Edge Functions cannot run ffmpeg, so transcoding is an
    adapter: `passthrough` (default, originals served as uploaded; enough to ship) or `mux`

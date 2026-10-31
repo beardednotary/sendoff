@@ -3,23 +3,19 @@ import SwiftUI
 /// The brand mark: a road that reads as an S, wide in the foreground and vanishing up and to
 /// the right. Same geometry as `brand/sendoff-icon.svg`, drawn in a 1024 unit space.
 struct PathMark: View {
+    @Environment(\.theme) private var theme
     var size: CGFloat = 40
-    /// Draw on the navy tile (app icon look) or bare on whatever paper it sits on.
+    /// Draw on the near-black tile (the app icon) or bare, in the theme's ink.
     var onTile: Bool = true
 
     var body: some View {
         ZStack {
             if onTile {
                 RoundedRectangle(cornerRadius: size * 0.2227, style: .continuous)
-                    .fill(LinearGradient(colors: [Color(red: 0.11, green: 0.18, blue: 0.32), Color(red: 0.07, green: 0.13, blue: 0.25)],
-                                         startPoint: .top, endPoint: .bottom))
+                    .fill(Color(red: 0.055, green: 0.055, blue: 0.051))
             }
             RoadShape()
-                .fill(LinearGradient(colors: [Color(red: 0.96, green: 0.91, blue: 0.84), Color(red: 0.91, green: 0.84, blue: 0.71)],
-                                     startPoint: .bottomLeading, endPoint: .topTrailing))
-            RoadEdgeShape()
-                .fill(LinearGradient(colors: [Color(red: 0.79, green: 0.64, blue: 0.29), Color(red: 0.90, green: 0.80, blue: 0.52)],
-                                     startPoint: .bottomLeading, endPoint: .topTrailing))
+                .fill(onTile ? Color(red: 0.953, green: 0.945, blue: 0.925) : theme.inkColor)
         }
         .frame(width: size, height: size)
         .accessibilityLabel("Sendoff")

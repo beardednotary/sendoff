@@ -24,12 +24,12 @@ struct PaywallView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 24) {
                         VStack(alignment: .leading, spacing: 12) {
-                            Stamp(text: "Make it something they can keep", tint: theme.sealColor)
+                            Eyebrow(text: "Make it something they can keep")
                             Text(headline)
-                                .font(Typeface.display(34))
+                                .font(Typeface.display(40)).displayTracking(40)
                                 .foregroundStyle(theme.inkColor)
                             Text("Pay once for this Sendoff. Nobody who adds to it or opens it ever pays.")
-                                .font(Typeface.ui)
+                                .font(Typeface.body)
                                 .foregroundStyle(theme.mutedInkColor)
                         }
                         .padding(.top, 12)
@@ -58,9 +58,9 @@ struct PaywallView: View {
                         VStack(alignment: .leading, spacing: 12) {
                             Text("Free holds \(Plan.free.entryLimit) entries and adds a small Sendoff line on the last page. That's fine, too.")
                                 .font(Typeface.caption).foregroundStyle(theme.mutedInkColor)
-                            QuietButton(title: "Keep it free for now") { dismiss() }
+                            SecondaryButton(title: "Keep it free for now") { dismiss() }
                             Button("Restore purchases") { Task { await purchases.restore() } }
-                                .font(Typeface.caption).foregroundStyle(theme.sealColor)
+                                .font(Typeface.caption).foregroundStyle(theme.mutedInkColor)
                                 .frame(maxWidth: .infinity)
                         }
                     }
@@ -70,7 +70,7 @@ struct PaywallView: View {
             }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button { dismiss() } label: { Image(systemName: "xmark").foregroundStyle(theme.mutedInkColor) }
+                    Button { dismiss() } label: { Image(systemName: "xmark") }.accessibilityLabel("Close")
                 }
             }
             .alert("Couldn't complete that", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) {
@@ -78,7 +78,7 @@ struct PaywallView: View {
             } message: { Text(error ?? "") }
             .task { if !purchases.loaded { await purchases.load() } }
         }
-        .sendoffTheme(theme)
+        .tint(theme.inkColor)
     }
 
     private var headline: String {
@@ -102,35 +102,35 @@ struct PaywallView: View {
                 Text(plan.title).font(Typeface.title).foregroundStyle(theme.inkColor)
                 Spacer()
                 if included {
-                    Stamp(text: "Yours", tint: theme.sealColor)
+                    Eyebrow(text: "Yours")
                 } else if let price {
-                    Text(price).font(.system(size: 22, weight: .semibold, design: .serif)).foregroundStyle(theme.inkColor)
+                    Text(price).font(Typeface.name).foregroundStyle(theme.inkColor)
                 } else {
                     ProgressView().tint(theme.mutedInkColor)
                 }
             }
-            if recommended, !included { Stamp(text: "Good fit for this one") }
+            if recommended, !included { Eyebrow(text: "Good fit for this one") }
             VStack(alignment: .leading, spacing: 6) {
                 ForEach(bullets, id: \.self) { b in
                     HStack(alignment: .top, spacing: 8) {
-                        Rectangle().fill(theme.sealColor).frame(width: 14, height: 2).padding(.top, 9)
-                        Text(b).font(Typeface.ui).foregroundStyle(theme.inkColor)
+                        Image(systemName: "checkmark").font(.system(size: 12, weight: .semibold)).foregroundStyle(theme.faintInkColor).padding(.top, 3)
+                        Text(b).font(Typeface.body).foregroundStyle(theme.inkColor)
                     }
                 }
             }
             if !included {
                 let title = credit != nil ? "Use a credit" : (price.map { "\($0), once" } ?? plan.title)
                 if busy == plan {
-                    ProgressView().tint(theme.sealColor).frame(maxWidth: .infinity).padding(.vertical, 16)
+                    ProgressView().tint(theme.inkColor).frame(maxWidth: .infinity).frame(height: 50)
                 } else {
-                    SealButton(title: title) { Task { await choose(plan) } }
+                    PrimaryButton(title: title) { Task { await choose(plan) } }
                         .disabled(busy != nil || (price == nil && credit == nil))
                 }
             }
         }
-        .padding(18)
-        .background(theme.raisedPaperColor, in: RoundedRectangle(cornerRadius: theme.radius + 6))
-        .overlay(RoundedRectangle(cornerRadius: theme.radius + 6).stroke(recommended ? theme.sealColor : theme.ruleColor))
+        .padding(20)
+        .background(theme.raisedPaperColor, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(recommended ? theme.inkColor.opacity(0.5) : theme.ruleColor))
     }
 
     private func choose(_ plan: Plan) async {
@@ -152,5 +152,5 @@ struct PaywallView: View {
     return PaywallView(sendoff: MockStore.sampleCollecting, entryCount: 7) { _ in }
         .environment(\.store, store)
         .environment(PurchaseManager(store: store))
-        .sendoffTheme(ThemeCatalog.theme(.letterpress))
+        .appTheme()
 }

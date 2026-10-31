@@ -30,7 +30,7 @@ struct RevealLoader: View {
     }
 }
 
-/// The reveal. Sealed envelope → cover → one entry at a time → kept.
+/// The reveal. Sealed → hold the seal → cover → one entry at a time → kept.
 struct RevealView: View {
     @Environment(\.store) private var store
     @Environment(\.dismiss) private var dismiss
@@ -41,12 +41,16 @@ struct RevealView: View {
 
     enum Stage: Equatable { case sealed, waiting, cover, entry(Int), kept }
     @State private var stage: Stage = .sealed
+    @State private var hold: Double = 0
+    @State private var holding = false
     @State private var opened = false
     @State private var player = MusicPlayer()
     @State private var dragX: CGFloat = 0
+    @State private var trackTitle: String?
 
     private var theme: SendoffTheme { ThemeCatalog.theme(sendoff.themeID) }
     private var canOpen: Bool { preview || sendoff.isOpen || (sendoff.opensAt.map { $0 <= .now } ?? false) }
+    private var hasPhoto: Bool { sendoff.recipientPhotoURL != nil }
 
     var body: some View {
         ZStack {
@@ -58,143 +62,234 @@ struct RevealView: View {
             case .entry(let i): entry(i).transition(pageTransition)
             case .kept: kept.transition(.opacity)
             }
-            VStack {
-                HStack {
-                    if preview { Stamp(text: "Preview") }
-                    Spacer()
-                    Button { player.stop(); dismiss() } label: {
-                        Image(systemName: "xmark").font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(theme.inkColor).frame(width: 36, height: 36)
-                            .background(theme.raisedPaperColor, in: Circle())
-                    }
-                }
-                .padding(20)
-                Spacer()
-                if case .entry = stage { progressDots }
-            }
         }
+        .overlay(alignment: .top) { chrome }
         .sendoffTheme(theme)
         .statusBarHidden()
         .onDisappear { player.stop() }
+        .sensoryFeedback(.impact(weight: .heavy), trigger: opened)
+        .task { trackTitle = try? await store.tracks().first { $0.id == sendoff.musicTrackID }?.title }
+    }
+
+    // MARK: Chrome
+
+    private var chrome: some View {
+        VStack(spacing: 10) {
+            if case .entry(let i) = stage {
+                HStack(spacing: 4) {
+                    ForEach(0..<contributions.count, id: \.self) { n in
+                        Capsule().fill(n <= i ? theme.inkColor : theme.controlColor).frame(height: 2)
+                    }
+                }
+                .animation(Motion.fade, value: stage)
+            }
+            HStack {
+                if preview { Eyebrow(text: "Preview", tint: onImage ? .white.opacity(0.85) : nil) }
+                else if case .entry(let i) = stage {
+                    Text("\(i + 1) of \(contributions.count)").font(Typeface.caption).foregroundStyle(theme.faintInkColor)
+                }
+                Spacer()
+                CircleButton(systemImage: "xmark", label: "Close", onImage: onImage) { player.stop(); dismiss() }
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 14)
+    }
+
+    /// The close button sits on a photo during the sealed and cover stages.
+    private var onImage: Bool {
+        guard hasPhoto else { return false }
+        switch stage {
+        case .sealed, .waiting, .cover: return true
+        default: return false
+        }
     }
 
     // MARK: Stages
 
+    /// The recipient's photo, out of focus behind the seal. Holding the seal draws its ring
+    /// closed; at the end the blur lifts and the cover comes up.
     private var sealed: some View {
-        VStack(spacing: 30) {
-            Spacer()
-            Envelope(sendoff: sendoff, contributorCount: contributions.count, opened: opened)
-                .padding(.horizontal, 28)
-                .onTapGesture { breakSeal() }
-            VStack(spacing: 8) {
-                Text(canOpen ? "Tap the seal" : sendoff.statusLine)
-                    .font(Typeface.ui).foregroundStyle(theme.mutedInkColor)
-                if !canOpen, let d = sendoff.opensAt {
-                    Text("Sealed until \(d.formatted(.dateTime.weekday(.wide).month(.wide).day().hour().minute()))")
-                        .font(Typeface.caption).foregroundStyle(theme.mutedInkColor.opacity(0.8))
-                }
+        ZStack {
+            if hasPhoto {
+                CoverImage(sendoff: sendoff)
+                    .blur(radius: opened ? 0 : 40, opaque: true)
+                    .ignoresSafeArea()
+                Color.black.opacity(opened ? 0.1 : 0.5).ignoresSafeArea()
             }
-            Spacer()
-            Spacer()
+            VStack(spacing: 0) {
+                Spacer()
+                Seal(initial: sendoff.recipientInitial, size: 140, progress: hold, ink: ink)
+                    .scaleEffect(holding ? 0.96 : 1)
+                    .opacity(opened ? 0 : 1)
+                    .animation(Motion.settle, value: holding)
+                    .onLongPressGesture(minimumDuration: Motion.holdToOpen, maximumDistance: 40) {
+                        breakSeal()
+                    } onPressingChanged: { pressing in
+                        guard canOpen else { if pressing { withAnimation(Motion.fade) { stage = .waiting } }; return }
+                        holding = pressing
+                        withAnimation(pressing ? .linear(duration: Motion.holdToOpen) : Motion.settle) { hold = pressing ? 1 : 0 }
+                    }
+                    .sensoryFeedback(.impact(weight: .light), trigger: holding) { _, new in new }
+                    .accessibilityElement()
+                    .accessibilityLabel("The seal, for \(sendoff.recipientName)")
+                    .accessibilityHint(canOpen ? "Opens it" : "Not open yet")
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilityAction { canOpen ? breakSeal() : withAnimation(Motion.fade) { stage = .waiting } }
+                Text("For \(sendoff.recipientName)")
+                    .font(Typeface.display(40)).displayTracking(40)
+                    .foregroundStyle(ink)
+                    .multilineTextAlignment(.center)
+                    .padding(.top, 40)
+                Text([sendoff.fromLine, contributions.isEmpty ? nil : "\(contributions.count) people"].compactMap { $0 }.joined(separator: " · "))
+                    .font(Typeface.body).foregroundStyle(ink.opacity(0.8))
+                    .multilineTextAlignment(.center)
+                    .padding(.top, 10)
+                Spacer()
+                Text(holding ? "Keep holding" : canOpen ? "Press and hold the seal" : sendoff.statusLine)
+                    .font(Typeface.body).foregroundStyle(ink.opacity(0.85))
+                    .contentTransition(.opacity)
+                    .animation(Motion.fade, value: holding)
+                    .padding(.bottom, 40)
+            }
+            .padding(.horizontal, 28)
+            .opacity(opened ? 0 : 1)
         }
     }
 
+    /// Text on the sealed screen: white over a photo, the theme's ink without one.
+    private var ink: Color { hasPhoto ? .white : theme.inkColor }
+
     private var waiting: some View {
-        VStack(spacing: 16) {
-            Spacer()
-            Seal(initial: sendoff.recipientInitial, size: 96)
-            Text("Not yet.").font(Typeface.title).foregroundStyle(theme.inkColor)
-            if let d = sendoff.opensAt {
-                Text("This opens \(d.formatted(.dateTime.weekday(.wide).month(.wide).day())). \(contributions.count) people are waiting for you.")
-                    .font(Typeface.ui).foregroundStyle(theme.mutedInkColor).multilineTextAlignment(.center)
+        ZStack {
+            if hasPhoto {
+                CoverImage(sendoff: sendoff).blur(radius: 40, opaque: true).ignoresSafeArea()
+                Color.black.opacity(0.55).ignoresSafeArea()
             }
-            Spacer()
+            VStack(spacing: 0) {
+                Spacer()
+                Seal(initial: sendoff.recipientInitial, size: 110, ink: ink)
+                Text("Not yet.")
+                    .font(Typeface.display(40)).displayTracking(40).foregroundStyle(ink)
+                    .padding(.top, 32)
+                if let d = sendoff.opensAt {
+                    Text("This opens \(d.formatted(.dateTime.weekday(.wide).month(.wide).day())). \(contributions.count) people are waiting for you.")
+                        .font(Typeface.body).foregroundStyle(ink.opacity(0.8))
+                        .multilineTextAlignment(.center)
+                        .padding(.top, 12)
+                }
+                Spacer()
+            }
+            .padding(.horizontal, 28)
         }
-        .padding(28)
     }
 
     private var cover: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Spacer()
-            Stamp(text: sendoff.occasion.title)
-            Text(sendoff.recipientName)
-                .font(Typeface.display(52)).foregroundStyle(theme.inkColor)
-                .minimumScaleFactor(0.6).lineLimit(2)
-            if let f = sendoff.fromLine { Text(f).font(Typeface.signature).foregroundStyle(theme.mutedInkColor) }
-            if let m = sendoff.coverMessage {
-                Rule().padding(.vertical, 6)
-                Text(m).font(Typeface.entry).lineSpacing(5).foregroundStyle(theme.inkColor)
+        GeometryReader { g in
+            ZStack(alignment: .top) {
+                if hasPhoto {
+                    CoverImage(sendoff: sendoff)
+                        .frame(width: g.size.width, height: g.size.height * 0.64)
+                        .clipped()
+                    LinearGradient(stops: [.init(color: theme.paperColor.opacity(0), location: 0.45), .init(color: theme.paperColor, location: 1)],
+                                   startPoint: .top, endPoint: .bottom)
+                        .frame(height: g.size.height * 0.64)
+                } else {
+                    Seal(initial: sendoff.recipientInitial, size: 120)
+                        .padding(.top, g.size.height * 0.2)
+                }
+                VStack(alignment: .leading, spacing: 0) {
+                    Spacer()
+                    Eyebrow(text: sendoff.occasion.title, tint: theme.mutedInkColor)
+                    Text(sendoff.recipientName)
+                        .font(Typeface.display(48)).displayTracking(48)
+                        .foregroundStyle(theme.inkColor)
+                        .minimumScaleFactor(0.6).lineLimit(2)
+                        .padding(.top, 8)
+                    if let f = sendoff.fromLine {
+                        Text(f).font(Typeface.body).foregroundStyle(theme.mutedInkColor).padding(.top, 6)
+                    }
+                    if let m = sendoff.coverMessage {
+                        Text(m).font(Typeface.entry).lineSpacing(4).foregroundStyle(theme.inkColor)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.top, 22)
+                    }
+                    HStack {
+                        if let trackTitle {
+                            Label(trackTitle, systemImage: "music.note").labelStyle(TightLabel())
+                                .font(Typeface.caption).foregroundStyle(theme.faintInkColor)
+                        }
+                        Spacer()
+                        Button { advance() } label: {
+                            PillLabel(title: contributions.isEmpty ? "Finish" : "Begin", systemImage: "arrow.right", fill: false, small: true, iconTrailing: true)
+                                .foregroundStyle(theme.inkColor)
+                                .background(theme.controlColor, in: Capsule())
+                        }
+                        .buttonStyle(.pressable)
+                    }
+                    .padding(.top, 40)
+                    .padding(.bottom, 12)
+                }
+                .padding(.horizontal, 20)
             }
-            Spacer()
-            HStack {
-                Ribbon(text: "\(contributions.count) people")
-                Spacer()
-                Text("Swipe to begin").font(Typeface.caption).foregroundStyle(theme.mutedInkColor)
-            }
-            .padding(.bottom, 30)
         }
-        .padding(28)
+        .ignoresSafeArea(edges: .top)
         .contentShape(Rectangle())
         .gesture(pageGesture)
-        .onTapGesture { advance() }
     }
 
     private func entry(_ i: Int) -> some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                Spacer(minLength: 70)
+        GeometryReader { g in
+            ScrollView {
                 EntryPage(contribution: contributions[i])
-                    .rotation3DEffect(.degrees(Double(dragX / 30)), axis: (x: 0, y: 1, z: 0), perspective: 0.5)
-                    .offset(x: dragX * 0.3)
-                Text("\(i + 1) of \(contributions.count)").font(Typeface.caption).foregroundStyle(theme.mutedInkColor)
-                Spacer(minLength: 60)
+                    .offset(x: dragX * 0.25)
+                    .opacity(1 - min(0.4, abs(dragX) / 600))
+                    .padding(.horizontal, 20)
+                    .padding(.top, 96)
+                    .padding(.bottom, 48)
+                    .frame(minHeight: g.size.height)
             }
-            .padding(.horizontal, 20)
+            .scrollIndicators(.hidden)
         }
         .contentShape(Rectangle())
         .simultaneousGesture(pageGesture)
+        .onTapGesture { advance() }
+        .onAppear { if contributions[i].voice != nil || contributions[i].video != nil { player.duck() } else { player.unduck() } }
     }
 
     private var kept: some View {
-        VStack(spacing: 20) {
+        VStack(alignment: .leading, spacing: 0) {
             Spacer()
-            PathMark(size: 84)
-            Text("Kept for you.").font(Typeface.display(40)).foregroundStyle(theme.inkColor)
-            Text("\(contributions.count) people. This stays here as long as you want it.")
-                .font(Typeface.ui).foregroundStyle(theme.mutedInkColor).multilineTextAlignment(.center)
+            Seal(initial: sendoff.recipientInitial, size: 96)
+            Text("Kept for you.")
+                .font(Typeface.display(48)).displayTracking(48).foregroundStyle(theme.inkColor)
+                .padding(.top, 28)
+            Text("\(contributions.count) people wrote to you. This stays here as long as you want it.")
+                .font(Typeface.body).foregroundStyle(theme.mutedInkColor)
+                .padding(.top, 12)
             Spacer()
             VStack(spacing: 10) {
-                SealButton(title: "Read it again", systemImage: "arrow.counterclockwise") {
+                PrimaryButton(title: "Read it again", systemImage: "arrow.counterclockwise") {
                     withAnimation(Motion.turn) { stage = .cover }
                 }
-                QuietButton(title: "Save as PDF", systemImage: "doc") { /* ImageRenderer export, phase 2 */ }
+                SecondaryButton(title: "Save as PDF", systemImage: "doc") { /* ImageRenderer export, phase 2 */ }
             }
+            .padding(.bottom, 12)
         }
-        .padding(28)
-    }
-
-    private var progressDots: some View {
-        HStack(spacing: 5) {
-            ForEach(0..<contributions.count, id: \.self) { i in
-                Capsule()
-                    .fill({ if case .entry(let c) = stage, c == i { return theme.sealColor } ; return theme.ruleColor }())
-                    .frame(width: { if case .entry(let c) = stage, c == i { return 18 } ; return 6 }(), height: 4)
-            }
-        }
-        .padding(.bottom, 24)
-        .animation(Motion.fade, value: stage)
+        .padding(.horizontal, 20)
     }
 
     // MARK: Behavior
 
     private func breakSeal() {
-        guard canOpen else { withAnimation(Motion.fade) { stage = .waiting }; return }
-        withAnimation(reduceMotion ? Motion.fade : Motion.lift) { opened = true }
+        guard canOpen, !opened else { return }
+        holding = false
+        withAnimation(reduceMotion ? Motion.fade : .easeOut(duration: 0.7)) { opened = true }
         if !preview, !sendoff.isOpen { Task { try? await store.markOpened(sendoff.id) } }
         player.play(trackID: sendoff.musicTrackID)
         Task {
-            try? await Task.sleep(for: .milliseconds(900))
-            withAnimation(Motion.turn) { stage = .cover }
+            try? await Task.sleep(for: .milliseconds(reduceMotion ? 300 : 650))
+            withAnimation(reduceMotion ? Motion.fade : Motion.lift) { stage = .cover }
         }
     }
 

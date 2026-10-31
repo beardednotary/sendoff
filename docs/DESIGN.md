@@ -1,5 +1,12 @@
 # Sendoff — Design language
 
+> **The look changed on 30 October 2026.** The app now follows [design/v2/DIRECTION.md](../design/v2/DIRECTION.md)
+> ("Evening", modeled on Once): near-black and warm white, no accent colour, New York for names
+> and what people wrote, SF Pro for the app, white pill buttons, the recipient's photo as the
+> cover, and the seal as a two-ring monogram that is held to open. Paper grain, the dashed
+> stamps, the ribbon and the coloured wax seal are retired. The ideas below about one thing at a
+> time, privacy and copy voice still hold; where this document and v2 disagree on looks, v2 wins.
+
 Not a template. The visual idea comes from the object we are replacing and the object we are
 becoming: **a card passed around the office** becomes **a sealed envelope and a keepsake**.
 
@@ -52,9 +59,9 @@ data, not code, so premium ones can ship without an app update.
 
 | Theme | Paper | Ink | Seal | Feel | Default occasion |
 |---|---|---|---|---|---|
-| **Letterpress** | Warm cream `#F4EFE6` | Near-black `#1F1D1A` | Vermilion `#C8442B` | A hand-printed program. Deckled edges, generous margins. | New job, Farewell |
-| **Midnight Toast** | Deep navy `#0F1B2D` | Ivory `#F2EBDD` | Antique gold `#C9A24A` | A dinner toast. Dark, warm, candle-lit. | Retirement |
-| **Chalk** | Slate green `#2F4A3E` | Chalk white `#F7F3E8` | School yellow `#E9C46A` | A classroom board at the end of the year. | Teacher, Graduation |
+| **Paper** (id `letterpress`) | Warm white `#F5F3EF` | `#141413` | Ink | Quiet and clear. Also the app's light mode. | New job, Farewell |
+| **Evening** (id `midnight_toast`) | Near-black `#0E0E0D` | Warm white `#F3F1EC` | Ink | For the evening it opens. Also the app's dark mode. | Retirement |
+| **Blackboard** (id `chalk`) | Green-black `#18211C` | `#EEF0EA` | Ink | The board on the last day of school. | Teacher, Graduation |
 
 ### Premium (ship 3, add quarterly)
 

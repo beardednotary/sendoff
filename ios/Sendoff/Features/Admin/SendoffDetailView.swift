@@ -3,7 +3,7 @@ import SwiftUI
 /// The organizer tends a Sendoff: share, watch entries arrive, review, reorder, seal, open.
 struct SendoffDetailView: View {
     @Environment(\.store) private var store
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.theme) private var theme
     var sendoffID: UUID
 
     @State private var sendoff: Sendoff?
@@ -11,104 +11,44 @@ struct SendoffDetailView: View {
     @State private var showShare = false
     @State private var showPreview = false
     @State private var showPaywall = false
-    @State private var editMode: EditMode = .inactive
+    @State private var showReorder = false
     @State private var confirmOpen = false
 
     var body: some View {
         if let s = sendoff {
-            let theme = ThemeCatalog.theme(s.themeID)
             ZStack {
                 Paper()
-                List {
-                    Section {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
                         cover(s)
-                            .listRowInsets(EdgeInsets())
-                            .listRowBackground(Color.clear)
+                        VStack(alignment: .leading, spacing: 0) {
+                            facts(s)
+                            actions(s).padding(.top, 24)
+                            if s.plan == .free, !contributions.isEmpty { keepLine(s).padding(.top, 18) }
+                            if s.moderation == .review, !pending.isEmpty { review }
+                            envelope(s)
+                            if !hidden.isEmpty { hiddenSection }
+                        }
+                        .padding(.horizontal, 20)
                     }
-                    if s.moderation == .review, !pending.isEmpty {
-                        Section {
-                            ForEach(pending) { c in reviewRow(c, theme: theme) }
-                        } header: {
-                            sectionHeader("Waiting for you · \(pending.count)", theme)
-                        }
-                    }
-                    Section {
-                        if approved.isEmpty {
-                            Text(s.isCollecting ? "Nothing yet. Share the link." : "No entries.")
-                                .font(Typeface.ui).foregroundStyle(theme.mutedInkColor)
-                                .listRowBackground(Color.clear)
-                        }
-                        ForEach(approved) { c in
-                            entryRow(c, theme: theme)
-                                .swipeActions(edge: .trailing) {
-                                    Button(role: .destructive) { Task { await set(c, .hidden) } } label: { Label("Hide", systemImage: "eye.slash") }
-                                    Button { Task { await pin(c) } } label: { Label(c.pinned ? "Unpin" : "Pin first", systemImage: "pin") }.tint(theme.sealColor)
-                                }
-                        }
-                        .onMove { from, to in
-                            var list = approved
-                            list.move(fromOffsets: from, toOffset: to)
-                            Task { try? await store.reorder(s.id, orderedIDs: list.map(\.id)); await load() }
-                        }
-                    } header: {
-                        HStack {
-                            sectionHeader("In the envelope · \(approved.count)", theme)
-                            Spacer()
-                            if approved.count > 1 {
-                                Button(editMode.isEditing ? "Done" : "Reorder") {
-                                    withAnimation { editMode = editMode.isEditing ? .inactive : .active }
-                                }
-                                .font(Typeface.caption).foregroundStyle(theme.sealColor)
-                            }
-                        }
-                    }
-                    if !hidden.isEmpty {
-                        Section {
-                            ForEach(hidden) { c in
-                                entryRow(c, theme: theme).opacity(0.55)
-                                    .swipeActions(edge: .trailing) {
-                                        Button { Task { await set(c, .approved) } } label: { Label("Restore", systemImage: "arrow.uturn.left") }.tint(theme.sealColor)
-                                        Button(role: .destructive) { Task { try? await store.delete(contribution: c.id); await load() } } label: { Label("Delete", systemImage: "trash") }
-                                    }
-                            }
-                        } header: { sectionHeader("Hidden · \(hidden.count)", theme) }
-                    }
+                    .padding(.bottom, 48)
                 }
-                .listStyle(.plain)
-                .scrollContentBackground(.hidden)
-                .environment(\.editMode, $editMode)
+                .ignoresSafeArea(edges: .top)
             }
-            .navigationTitle(s.recipientFirstName)
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarColorScheme(s.recipientPhotoURL != nil ? .dark : nil, for: .navigationBar)
             .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Menu {
-                        Button { showPreview = true } label: { Label("Preview the reveal", systemImage: "envelope.open") }
-                        if s.plan < .plus {
-                            Button { showPaywall = true } label: { Label("Make it something they can keep", systemImage: "seal") }
-                        }
-                        if s.state == .collecting {
-                            Button { Task { await setState(.sealed) } } label: { Label("Stop collecting and seal", systemImage: "lock") }
-                        }
-                        if s.state == .sealed || s.state == .collecting {
-                            Button { confirmOpen = true } label: { Label("Open it now", systemImage: "sparkles") }
-                        }
-                        if s.state == .sealed {
-                            Button { Task { await setState(.collecting) } } label: { Label("Reopen for entries", systemImage: "lock.open") }
-                        }
-                    } label: { Image(systemName: "ellipsis.circle").foregroundStyle(theme.inkColor) }
-                }
+                ToolbarItem(placement: .primaryAction) { menu(s) }
             }
-            .safeAreaInset(edge: .bottom) {
-                if s.isCollecting {
-                    SealButton(title: "Share the link", systemImage: "square.and.arrow.up") { showShare = true }
-                        .padding(20)
-                        .background(theme.paperColor.opacity(0.96))
-                }
-            }
-            .sheet(isPresented: $showShare) { ShareView(sendoff: s) }
+            .sheet(isPresented: $showShare) { ShareView(sendoff: s).appTheme() }
             .sheet(isPresented: $showPaywall) {
-                PaywallView(sendoff: s, entryCount: approved.count) { updated in sendoff = updated }
+                PaywallView(sendoff: s, entryCount: approved.count) { updated in sendoff = updated }.appTheme()
+            }
+            .sheet(isPresented: $showReorder) {
+                ReorderSheet(entries: approved) { ids in
+                    Task { try? await store.reorder(s.id, orderedIDs: ids); await load() }
+                }
+                .appTheme()
             }
             .fullScreenCover(isPresented: $showPreview) {
                 RevealView(sendoff: s, contributions: approved, preview: true)
@@ -116,132 +56,168 @@ struct SendoffDetailView: View {
             .confirmationDialog("Open it now?", isPresented: $confirmOpen, titleVisibility: .visible) {
                 Button("Open for \(s.recipientFirstName)") { Task { await setState(.open) } }
             } message: {
-                Text("\(s.recipientFirstName) will be able to break the seal right away. Entries stop here.")
+                Text("\(s.recipientFirstName) will be able to open it right away. Entries stop here.")
             }
-            .sendoffTheme(theme)
             .task { await load() }
             .refreshable { await load() }
         } else {
-            ProgressView().task { await load() }
+            ZStack { Paper(); ProgressView().tint(theme.faintInkColor) }
+                .task { await load() }
         }
     }
 
     // MARK: Pieces
 
     private func cover(_ s: Sendoff) -> some View {
-        let theme = ThemeCatalog.theme(s.themeID)
-        return VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Stamp(text: s.occasion.title)
-                    Text(s.recipientName).font(Typeface.display(34)).foregroundStyle(theme.inkColor)
-                    if let f = s.fromLine { Text(f).font(Typeface.signature).foregroundStyle(theme.mutedInkColor) }
-                }
-                Spacer()
-                Seal(initial: s.recipientInitial, size: 64)
-            }
-            HStack(spacing: 18) {
-                stat("\(approved.count)", "entries")
-                stat("\(contributions.filter { !$0.media.isEmpty }.count)", "with media")
-                stat(s.statusLine, nil)
-            }
-            if let goal = s.contributorGoal, s.isCollecting {
-                VStack(alignment: .leading, spacing: 6) {
-                    GeometryReader { g in
-                        ZStack(alignment: .leading) {
-                            Capsule().fill(theme.ruleColor)
-                            Capsule().fill(theme.sealColor)
-                                .frame(width: g.size.width * min(1, CGFloat(approved.count) / CGFloat(max(goal, 1))))
-                        }
-                    }
-                    .frame(height: 4)
-                    Text(approved.count >= goal ? "You hit your goal of \(goal). Share once more for the stragglers." : "\(approved.count) of \(goal). Share again if it stalls.")
-                        .font(Typeface.caption).foregroundStyle(theme.mutedInkColor)
+        let hasPhoto = s.recipientPhotoURL != nil
+        return ZStack(alignment: .bottomLeading) {
+            CoverImage(sendoff: s)
+                .frame(maxWidth: .infinity)
+                .containerRelativeFrame(.vertical) { h, _ in h * 0.5 }
+                .clipped()
+            LinearGradient(stops: [
+                .init(color: .black.opacity(hasPhoto ? 0.5 : 0), location: 0),
+                .init(color: .black.opacity(0), location: 0.25),
+                .init(color: theme.paperColor.opacity(0), location: 0.45),
+                .init(color: theme.paperColor, location: 1),
+            ], startPoint: .top, endPoint: .bottom)
+            VStack(alignment: .leading, spacing: 8) {
+                Eyebrow(text: s.occasion.title, tint: theme.mutedInkColor)
+                Text(s.recipientName)
+                    .font(Typeface.display(40)).displayTracking(40)
+                    .foregroundStyle(theme.inkColor)
+                    .lineLimit(2).minimumScaleFactor(0.7)
+                if let f = s.fromLine {
+                    Text(f).font(Typeface.body).foregroundStyle(theme.mutedInkColor)
                 }
             }
-            if s.plan == .free, !contributions.isEmpty {
-                keepBanner(s, theme: theme)
-            }
-            Rule()
+            .padding(.horizontal, 20)
         }
-        .padding(20)
+    }
+
+    private func facts(_ s: Sendoff) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            MetaLine(systemImage: s.state == .sealed ? "lock" : s.state == .open ? "envelope.open" : "clock", text: s.statusLine)
+            if s.state != .open {
+                MetaLine(systemImage: "person.2", text: countLine(s))
+                MetaLine(systemImage: "lock", text: s.opensAt.map { "Opens \($0.formatted(.dateTime.weekday(.wide).month(.wide).day()))" } ?? "Opens when you say so")
+            }
+        }
+        .padding(.top, 22)
+    }
+
+    @ViewBuilder
+    private func actions(_ s: Sendoff) -> some View {
+        HStack(spacing: 10) {
+            switch s.state {
+            case .collecting, .draft:
+                PrimaryButton(title: "Share the link", systemImage: "square.and.arrow.up") { showShare = true }
+                SecondaryButton(title: "Preview", systemImage: "eye", fill: false) { showPreview = true }
+            case .sealed:
+                PrimaryButton(title: "Preview the reveal", systemImage: "eye") { showPreview = true }
+                SecondaryButton(title: "Share", systemImage: "square.and.arrow.up", fill: false) { showShare = true }
+            case .open:
+                PrimaryButton(title: "Read it again", systemImage: "book") { showPreview = true }
+            }
+        }
     }
 
     /// The paywall, after entries arrive and never before. Free is a real option; this is an offer.
-    private func keepBanner(_ s: Sendoff, theme: SendoffTheme) -> some View {
+    private func keepLine(_ s: Sendoff) -> some View {
         let live = contributions.filter { $0.status != .hidden }.count
         let full = live >= s.contributorLimit
         return Button { showPaywall = true } label: {
-            HStack(spacing: 12) {
-                Image(systemName: full ? "tray.full" : "seal")
-                    .font(.system(size: 20))
-                    .foregroundStyle(theme.sealColor)
-                    .frame(width: 28)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(full ? "Free holds \(s.contributorLimit). It's full." : "Make it something they can keep")
-                        .font(Typeface.uiStrong).foregroundStyle(theme.inkColor)
-                    Text(full
-                         ? "Upgrade so more people can add."
-                         : "Free holds \(s.contributorLimit) entries and adds a Sendoff line at the end. \(live) in so far.")
-                        .font(Typeface.caption).foregroundStyle(theme.mutedInkColor)
-                }
-                Spacer()
-                Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(theme.mutedInkColor)
+            HStack(spacing: 6) {
+                Text(full ? "Free holds \(s.contributorLimit), and it's full. Make room for everyone"
+                          : "Free holds \(s.contributorLimit). Make it something they can keep")
+                    .multilineTextAlignment(.leading)
+                Image(systemName: "chevron.right").font(.system(size: 11, weight: .semibold))
             }
-            .padding(14)
-            .background(theme.raisedPaperColor, in: RoundedRectangle(cornerRadius: theme.radius + 4))
-            .overlay(RoundedRectangle(cornerRadius: theme.radius + 4).stroke(theme.sealColor.opacity(full ? 0.9 : 0.5)))
+            .font(Typeface.caption)
+            .foregroundStyle(full ? theme.inkColor : theme.mutedInkColor)
         }
         .buttonStyle(.pressable)
     }
 
-    private func stat(_ value: String, _ label: String?) -> some View {
-        let theme = ThemeCatalog.theme(sendoff?.themeID ?? .letterpress)
-        return VStack(alignment: .leading, spacing: 2) {
-            Text(value).font(.system(size: label == nil ? 15 : 22, weight: .semibold, design: .serif)).foregroundStyle(theme.inkColor)
-            if let label { Text(label).font(Typeface.caption).foregroundStyle(theme.mutedInkColor) }
-        }
-    }
-
-    private func sectionHeader(_ text: String, _ theme: SendoffTheme) -> some View {
-        Text(text.uppercased()).font(Typeface.stamp).kerning(1.1).foregroundStyle(theme.mutedInkColor)
-    }
-
-    private func entryRow(_ c: Contribution, theme: SendoffTheme) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            if c.pinned { Image(systemName: "pin.fill").font(.system(size: 11)).foregroundStyle(theme.sealColor).padding(.top, 4) }
-            VStack(alignment: .leading, spacing: 4) {
-                Text(c.signature).font(Typeface.uiStrong).foregroundStyle(theme.inkColor)
-                if let b = c.body, c.hasText {
-                    Text(b).font(Typeface.caption).foregroundStyle(theme.mutedInkColor).lineLimit(2)
-                }
-                if !c.media.isEmpty {
-                    HStack(spacing: 6) {
-                        ForEach(c.media) { m in
-                            Image(systemName: m.kind == .photo ? "photo" : m.kind == .voice ? "waveform" : "video")
-                                .font(.system(size: 11))
-                        }
+    private var review: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Eyebrow(text: "Waiting for you · \(pending.count)").padding(.top, 36).padding(.bottom, 6)
+            ForEach(pending) { c in
+                VStack(alignment: .leading, spacing: 14) {
+                    EntryPage(contribution: c, compact: true)
+                    HStack(spacing: 10) {
+                        SecondaryButton(title: "Hide", systemImage: "eye.slash", fill: false) { Task { await set(c, .hidden) } }
+                        PrimaryButton(title: "Approve", systemImage: "checkmark", fill: false) { Task { await set(c, .approved) } }
                     }
-                    .foregroundStyle(theme.sealColor)
                 }
+                .padding(.vertical, 18)
+                if c.id != pending.last?.id { Rule() }
             }
-            Spacer()
         }
-        .padding(.vertical, 6)
-        .listRowBackground(Color.clear)
     }
 
-    private func reviewRow(_ c: Contribution, theme: SendoffTheme) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            EntryPage(contribution: c)
-            HStack(spacing: 10) {
-                QuietButton(title: "Hide", systemImage: "eye.slash") { Task { await set(c, .hidden) } }
-                SealButton(title: "Approve", systemImage: "checkmark") { Task { await set(c, .approved) } }
+    private func envelope(_ s: Sendoff) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Eyebrow(text: "In the envelope · \(approved.count)").padding(.top, 36).padding(.bottom, 4)
+            if approved.isEmpty {
+                Text(s.isCollecting ? "Nothing yet. Share the link and the first ones arrive within the hour." : "No entries.")
+                    .font(Typeface.body).foregroundStyle(theme.mutedInkColor)
+                    .padding(.vertical, 14)
+            }
+            ForEach(approved) { c in
+                EntryRow(contribution: c)
+                    .contextMenu {
+                        Button { Task { await pin(c) } } label: { Label(c.pinned ? "Unpin" : "Show first", systemImage: "pin") }
+                        Button(role: .destructive) { Task { await set(c, .hidden) } } label: { Label("Hide", systemImage: "eye.slash") }
+                    }
+                if c.id != approved.last?.id { Rule() }
             }
         }
-        .padding(.vertical, 8)
-        .listRowBackground(Color.clear)
-        .listRowSeparator(.hidden)
+    }
+
+    private var hiddenSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Eyebrow(text: "Hidden · \(hidden.count)").padding(.top, 36).padding(.bottom, 4)
+            ForEach(hidden) { c in
+                EntryRow(contribution: c)
+                    .opacity(0.5)
+                    .contextMenu {
+                        Button { Task { await set(c, .approved) } } label: { Label("Put it back", systemImage: "arrow.uturn.left") }
+                        Button(role: .destructive) { Task { try? await store.delete(contribution: c.id); await load() } } label: { Label("Delete", systemImage: "trash") }
+                    }
+                if c.id != hidden.last?.id { Rule() }
+            }
+        }
+    }
+
+    private func menu(_ s: Sendoff) -> some View {
+        Menu {
+            Button { showPreview = true } label: { Label("Preview the reveal", systemImage: "eye") }
+            if approved.count > 1 {
+                Button { showReorder = true } label: { Label("Reorder entries", systemImage: "arrow.up.arrow.down") }
+            }
+            if s.plan < .plus {
+                Button { showPaywall = true } label: { Label("Make it something they can keep", systemImage: "seal") }
+            }
+            if s.state == .collecting {
+                Button { Task { await setState(.sealed) } } label: { Label("Stop collecting and seal", systemImage: "lock") }
+            }
+            if s.state == .sealed || s.state == .collecting {
+                Button { confirmOpen = true } label: { Label("Open it now", systemImage: "envelope.open") }
+            }
+            if s.state == .sealed {
+                Button { Task { await setState(.collecting) } } label: { Label("Reopen for entries", systemImage: "lock.open") }
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+        }
+        .accessibilityLabel("More")
+    }
+
+    private func countLine(_ s: Sendoff) -> String {
+        let n = approved.count + pending.count
+        if let goal = s.contributorGoal { return "\(n) of \(goal) have added" }
+        return n == 1 ? "1 person has added" : "\(n) people have added"
     }
 
     // MARK: Data
@@ -274,9 +250,92 @@ struct SendoffDetailView: View {
     }
 }
 
+/// One entry in the organizer's list: who, and the first lines or what they attached.
+struct EntryRow: View {
+    @Environment(\.theme) private var theme
+    var contribution: Contribution
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            VStack(alignment: .leading, spacing: 4) {
+                (Text(contribution.authorName).font(Typeface.bodyStrong).foregroundColor(theme.inkColor)
+                 + Text(contribution.authorRelationship.map { $0.isEmpty ? "" : " · \($0)" } ?? "")
+                    .font(Typeface.body).foregroundColor(theme.faintInkColor))
+                if let b = contribution.body, contribution.hasText {
+                    Text(b).font(Typeface.caption).foregroundStyle(theme.mutedInkColor).lineLimit(2)
+                }
+                if !contribution.media.isEmpty {
+                    Label(mediaLine, systemImage: mediaSymbol)
+                        .labelStyle(TightLabel())
+                        .font(Typeface.caption).foregroundStyle(theme.faintInkColor)
+                }
+            }
+            Spacer(minLength: 0)
+            if contribution.pinned {
+                Image(systemName: "pin.fill").font(.system(size: 11)).foregroundStyle(theme.faintInkColor).padding(.top, 4)
+            }
+        }
+        .padding(.vertical, 14)
+        .contentShape(Rectangle())
+    }
+
+    private var mediaSymbol: String {
+        if contribution.video != nil { return "video" }
+        if contribution.voice != nil { return "waveform" }
+        return "photo"
+    }
+
+    private var mediaLine: String {
+        var parts: [String] = []
+        let photos = contribution.photos.count
+        if photos > 0 { parts.append(photos == 1 ? "1 photo" : "\(photos) photos") }
+        if let v = contribution.voice { parts.append("Voice note · \(clock(v.durationSeconds))") }
+        if let v = contribution.video { parts.append("Video · \(clock(v.durationSeconds))") }
+        return parts.joined(separator: ", ")
+    }
+
+    private func clock(_ s: Double?) -> String {
+        let n = Int(s ?? 0)
+        return String(format: "%d:%02d", n / 60, n % 60)
+    }
+}
+
+/// Drag entries into the order they are read in.
+struct ReorderSheet: View {
+    @Environment(\.theme) private var theme
+    @Environment(\.dismiss) private var dismiss
+    @State var entries: [Contribution]
+    var onSave: ([UUID]) -> Void
+
+    var body: some View {
+        NavigationStack {
+            List {
+                ForEach(entries) { c in
+                    Text(c.signature).font(Typeface.body).foregroundStyle(theme.inkColor)
+                        .listRowBackground(theme.raisedPaperColor)
+                }
+                .onMove { entries.move(fromOffsets: $0, toOffset: $1) }
+            }
+            .environment(\.editMode, .constant(.active))
+            .scrollContentBackground(.hidden)
+            .background(Paper())
+            .navigationTitle("Reading order")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { onSave(entries.map(\.id)); dismiss() }
+                }
+            }
+        }
+        .tint(theme.inkColor)
+    }
+}
+
 #Preview {
     let store = MockStore()
     return NavigationStack { SendoffDetailView(sendoffID: MockStore.sampleSendoff.id) }
+        .appTheme()
         .environment(\.store, store)
         .environment(PurchaseManager(store: store))
 }
