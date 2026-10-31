@@ -199,7 +199,7 @@ struct CreateFlow: View {
                     choiceRow(selected: draft.themeID == t.id) { draft.themeID = t.id } content: {
                         ZStack {
                             Circle().fill(t.paperColor)
-                            Seal(initial: draft.recipientName.isEmpty ? "A" : String(draft.recipientName.prefix(1)).uppercased(), size: 30).environment(\.theme, t)
+                            Seal(initial: draft.recipientName.isEmpty ? "A" : Sendoff.initial(of: draft.recipientName), size: 30).environment(\.theme, t)
                         }
                         .frame(width: 44, height: 44)
                         .overlay(Circle().stroke(theme.ruleColor))

@@ -278,8 +278,10 @@ struct Sendoff: Identifiable, Codable, Hashable {
     var isOpen: Bool { state == .open }
 
     /// The letter on the seal: "M" for Maria Reyes, "P" for Mr. Patel.
-    var recipientInitial: String {
-        let call = recipientFirstName.split(separator: " ")
+    var recipientInitial: String { Sendoff.initial(of: recipientName) }
+
+    static func initial(of recipientName: String) -> String {
+        let call = callName(recipientName).split(separator: " ")
         let word = call.count > 1 ? call[1] : Substring(recipientName.trimmingCharacters(in: .whitespaces))
         return String(word.prefix(1)).uppercased()
     }
