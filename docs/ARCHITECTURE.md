@@ -143,6 +143,9 @@ for their own row. The token and key in the links are the real capabilities, che
 `security definer` functions (`sendoff_public`, `sendoff_reveal`, `sendoff_open`,
 `reveal_contributions`, `reveal_media`; see `0002_web.sql`). Media is private; contributors sign
 their own uploads via storage RLS, recipients get URLs from the `sign-media` Edge Function.
+The recipient's photo for the cover is the organizer's own file at `uploads/{sendoff}/cover/`; a
+check constraint keeps `recipient_photo_path` inside that folder, and `sign-media` signs it for the
+key holder before the Sendoff opens as well as after.
 
 The recipient link carries a long random key (`recipient_key`) so it cannot be guessed from the
 contribute slug. The organizer gets both links and a QR code from the share screen. Recipients

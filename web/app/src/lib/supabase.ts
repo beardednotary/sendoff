@@ -17,6 +17,7 @@ interface SendoffRevealRow {
   id: string; recipient_name: string; occasion: RevealSendoff['occasion']; from_line: string | null; cover_message: string | null;
   theme_id: RevealSendoff['themeId']; music_track_id: string | null; state: RevealSendoff['state']; reveal: RevealSendoff['reveal'];
   opens_at: string | null; organizer_name: string | null; contributor_count: number; plan: RevealSendoff['plan'];
+  recipient_photo_path: string | null;
 }
 interface MediaRow {
   id: string; contribution_id: string; kind: Media['kind']; storage_path: string; processed_path: string | null; poster_path: string | null;
@@ -167,14 +168,23 @@ export class SupabaseStore implements WebStore {
 
   // MARK: Recipient
 
-  private mapReveal(slug: string, r: SendoffRevealRow): RevealSendoff {
+  private mapReveal(slug: string, r: SendoffRevealRow, photo: string | null): RevealSendoff {
     return {
       id: r.id, slug, recipientName: r.recipient_name, occasion: r.occasion, fromLine: r.from_line, coverMessage: r.cover_message,
       themeId: r.theme_id, musicTrackId: r.music_track_id, state: r.state, reveal: r.reveal, opensAt: date(r.opens_at),
       organizerName: r.organizer_name ?? 'the organizer', contributorCount: r.contributor_count ?? 0, plan: r.plan ?? 'free',
-      // The cover photo is not stored or signed for the recipient yet (same gap as the iOS app).
-      recipientPhotoUrl: null,
+      recipientPhotoUrl: photo,
     };
+  }
+
+  /** The cover is in the private bucket; sign-media signs it for the key holder, sealed or not. */
+  private async signCover(slug: string, key: string, path: string | null): Promise<string | null> {
+    if (!path) return null;
+    const { data, error } = await this.client.functions.invoke<{ urls: Record<string, string> }>('sign-media', {
+      body: { slug, key, paths: [path] },
+    });
+    if (error || !data) { console.error(error); return null; }
+    return data.urls[path] ?? null;
   }
 
   async reveal(slug: string, key: string): Promise<RevealSendoff> {
@@ -183,7 +193,7 @@ export class SupabaseStore implements WebStore {
     if (error) this.fail(error);
     const r = (data as SendoffRevealRow[] | null)?.[0];
     if (!r) throw new StoreError('not_found', StoreMessages.not_found);
-    return this.mapReveal(slug, r);
+    return this.mapReveal(slug, r, await this.signCover(slug, key, r.recipient_photo_path));
   }
 
   async open(slug: string, key: string): Promise<RevealSendoff> {
@@ -192,7 +202,7 @@ export class SupabaseStore implements WebStore {
     if (error) this.fail(error);
     const r = (data as SendoffRevealRow[] | null)?.[0];
     if (!r) throw new StoreError('sealed', StoreMessages.sealed);
-    return this.mapReveal(slug, r);
+    return this.mapReveal(slug, r, await this.signCover(slug, key, r.recipient_photo_path));
   }
 
   async revealContributions(slug: string, key: string): Promise<Contribution[]> {

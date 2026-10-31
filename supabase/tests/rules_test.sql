@@ -101,6 +101,30 @@ do $$ begin
   assert (select count(*) from contributions) = 2, 'organizer sees all entries';
 end $$;
 
+-- The cover photo: the organizer writes under {sendoff}/cover, and the cover must be its own file
+do $$
+declare sid uuid := (select id from sendoffs where slug = 'maria-r');
+begin
+  insert into storage.objects (bucket_id, name) values ('uploads', sid || '/cover/a.jpg');
+  update sendoffs set recipient_photo_path = sid || '/cover/a.jpg' where id = sid;
+  begin
+    update sendoffs set recipient_photo_path = '00000000-0000-0000-0000-000000000000/cover/x.jpg' where id = sid;
+    raise exception 'a cover pointing at another Sendoff went through';
+  exception when check_violation then null;
+  end;
+end $$;
+
+-- A contributor cannot write a cover
+select test_as('bbbbbbbb-0000-0000-0000-000000000002') as _ \gset
+do $$ begin
+  begin
+    insert into storage.objects (bucket_id, name)
+    select 'uploads', id || '/cover/b.jpg' from sendoff_public('maria-r', current_setting('test.token'));
+    raise exception 'a contributor wrote a cover';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+
 -- The recipient key: sealed, nothing shows
 select test_as('dddddddd-0000-0000-0000-000000000004') as _ \gset
 do $$
@@ -108,6 +132,7 @@ declare r record;
 begin
   select * into r from sendoff_reveal('maria-r', current_setting('test.key'));
   assert r.recipient_name = 'Maria Reyes' and r.contributor_count = 2 and r.state = 'collecting', 'reveal metadata';
+  assert r.recipient_photo_path like '%/cover/a.jpg', 'the recipient sees the cover path before it opens';
   assert (select count(*) from sendoff_reveal('maria-r', 'wrong')) = 0, 'wrong key sees nothing';
   assert (select count(*) from reveal_contributions('maria-r', current_setting('test.key'))) = 0, 'nothing before open';
   assert (select count(*) from sendoff_open('maria-r', current_setting('test.key'))) = 0, 'cannot break the seal before opens_at';

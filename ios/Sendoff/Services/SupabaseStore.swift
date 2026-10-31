@@ -2,6 +2,22 @@ import Foundation
 import Observation
 import Supabase
 
+/// Paths in the `uploads` bucket. Ids are lowercase: the storage policies match them with
+/// `^[0-9a-f-]{36}$` (0002_web.sql) and Swift prints UUIDs in uppercase.
+enum StoragePath {
+    /// {sendoff_id}/cover/{file}.jpg, the only shape `sendoffs_cover_is_own` (0005) accepts.
+    static func cover(_ sendoff: UUID, file: UUID = UUID()) -> String {
+        "\(id(sendoff))/cover/\(id(file)).jpg"
+    }
+
+    /// {sendoff_id}/{contribution_id}/{media_id}.{ext}
+    static func media(_ sendoff: UUID, _ contribution: UUID, _ media: UUID, ext: String) -> String {
+        "\(id(sendoff))/\(id(contribution))/\(id(media)).\(ext)"
+    }
+
+    private static func id(_ u: UUID) -> String { u.uuidString.lowercased() }
+}
+
 /// The real store. Mirrors `supabase/migrations/0001_init.sql`.
 ///
 /// Configure with `SUPABASE_URL` and `SUPABASE_ANON_KEY` in `Config/Local.xcconfig`
@@ -68,9 +84,9 @@ final class SupabaseStore: SendoffStore {
         var contribute_token: String?
         var recipient_key: String?
 
-        func model(organizerName: String) -> Sendoff {
+        func model(organizerName: String, photo: URL? = nil) -> Sendoff {
             Sendoff(id: id, slug: slug, organizerID: organizer_id, organizerName: organizerName,
-                    occasion: occasion, recipientName: recipient_name, recipientPhotoURL: nil,
+                    occasion: occasion, recipientName: recipient_name, recipientPhotoURL: photo,
                     fromLine: from_line, coverMessage: cover_message, themeID: theme_id,
                     musicTrackID: music_track_id, state: state, moderation: moderation, reveal: reveal,
                     closesAt: closes_at, opensAt: opens_at, openedAt: opened_at, plan: plan,
@@ -127,7 +143,33 @@ final class SupabaseStore: SendoffStore {
         let rows: [SendoffRow] = try await client.from("sendoffs")
             .select().eq("organizer_id", value: uid).order("created_at", ascending: false)
             .execute().value
-        return rows.map { $0.model(organizerName: currentUserName) }
+        let photos = await signedCovers(rows.compactMap(\.recipient_photo_path))
+        return rows.map { $0.model(organizerName: currentUserName, photo: $0.recipient_photo_path.flatMap { photos[$0] }) }
+    }
+
+    /// Covers live in the private `uploads` bucket; the organizer's read policy lets them sign
+    /// their own. Signed for a day, which outlasts any session in the library.
+    private func signedCovers(_ paths: [String]) async -> [String: URL] {
+        guard !paths.isEmpty,
+              let results = try? await client.storage.from("uploads").createSignedURLs(paths: paths, expiresIn: 86_400)
+        else { return [:] }
+        var urls: [String: URL] = [:]
+        for r in results { if let u = r.signedURL { urls[r.path] = u } }
+        return urls
+    }
+
+    /// Uploads the cover to {sendoff_id}/cover/ and records its path. A failed upload leaves the
+    /// Sendoff without a photo rather than failing a creation that already happened.
+    private func attachCover(_ local: URL, to sendoffID: UUID) async -> URL? {
+        guard let data = try? Data(contentsOf: local) else { return nil }
+        let path = StoragePath.cover(sendoffID)
+        do {
+            try await client.storage.from("uploads").upload(path, data: data, options: FileOptions(contentType: "image/jpeg"))
+            try await client.from("sendoffs").update(["recipient_photo_path": path]).eq("id", value: sendoffID).execute()
+            return local
+        } catch {
+            return nil
+        }
     }
 
     func create(_ d: SendoffDraft) async throws -> Sendoff {
@@ -145,7 +187,8 @@ final class SupabaseStore: SendoffStore {
                          moderation: d.moderation, reveal: d.reveal, closes_at: d.closesAt,
                          opens_at: d.reveal == .onDate ? d.opensAt : nil, contributor_goal: d.goal)
         let row: SendoffRow = try await client.from("sendoffs").insert(ins).select().single().execute().value
-        return row.model(organizerName: currentUserName)
+        let photo: URL? = if let local = d.recipientPhoto { await attachCover(local, to: row.id) } else { nil }
+        return row.model(organizerName: currentUserName, photo: photo)
     }
 
     func update(_ s: Sendoff) async throws -> Sendoff {
@@ -159,7 +202,7 @@ final class SupabaseStore: SendoffStore {
                       reveal: s.reveal, closes_at: s.closesAt, opens_at: s.opensAt)
         let row: SendoffRow = try await client.from("sendoffs").update(p).eq("id", value: s.id)
             .select().single().execute().value
-        return row.model(organizerName: currentUserName)
+        return row.model(organizerName: currentUserName, photo: s.recipientPhotoURL)
     }
 
     func setState(_ id: UUID, _ state: SendoffState) async throws {
@@ -232,7 +275,7 @@ final class SupabaseStore: SendoffStore {
         for (i, m) in d.media.enumerated() {
             guard let local = m.localURL else { continue }
             let data = try Data(contentsOf: local)
-            let path = "\(sendoffID)/\(row.id)/\(m.id).\(local.pathExtension)"
+            let path = StoragePath.media(sendoffID, row.id, m.id, ext: local.pathExtension)
             try await client.storage.from("uploads").upload(path, data: data)
             struct MIns: Encodable {
                 var contribution_id: UUID; var kind: MediaKind; var storage_path: String
@@ -312,6 +355,7 @@ final class SupabaseStore: SendoffStore {
             .rpc("redeem_entitlement", params: ["p_entitlement": entitlementID.uuidString, "p_sendoff": sendoffID.uuidString])
             .execute().value
         guard let row = rows.first else { throw StoreError.noCredit }
-        return row.model(organizerName: currentUserName)
+        let photos = await signedCovers([row.recipient_photo_path].compactMap { $0 })
+        return row.model(organizerName: currentUserName, photo: row.recipient_photo_path.flatMap { photos[$0] })
     }
 }

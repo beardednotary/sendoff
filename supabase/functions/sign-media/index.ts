@@ -2,7 +2,8 @@
 //
 // The recipient opens the Sendoff with slug + recipient_key and no account. Storage RLS cannot
 // express that, so this function checks the key against the database with the service role and
-// signs only paths that belong to approved entries of that open Sendoff.
+// signs only paths that belong to approved entries of that open Sendoff, plus the cover photo
+// (sendoffs.recipient_photo_path), which the recipient sees blurred behind the seal before it opens.
 //
 //   POST { slug, key, paths: string[] }  ->  { urls: { [path]: signedUrl } }
 //
@@ -37,30 +38,35 @@ Deno.serve(async (req) => {
 
   const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 
-  // 1. The key must open this Sendoff, and it must be open.
-  const { data: sendoff, error: sErr } = await admin.from('sendoffs').select('id, state')
+  // 1. The key must open this Sendoff.
+  const { data: sendoff, error: sErr } = await admin.from('sendoffs').select('id, state, recipient_photo_path')
     .eq('slug', slug).eq('recipient_key', key).maybeSingle();
   if (sErr) return json({ error: 'lookup failed' }, 500);
   if (!sendoff) return json({ error: 'not found' }, 404);
-  if (sendoff.state !== 'open') return json({ error: 'sealed' }, 403);
 
-  // 2. Only paths that belong to approved entries of this Sendoff.
-  const { data: rows, error: mErr } = await admin.from('media')
-    .select('storage_path, processed_path, poster_path, contributions!inner(sendoff_id, status)')
-    .eq('contributions.sendoff_id', sendoff.id).eq('contributions.status', 'approved');
-  if (mErr) return json({ error: 'media lookup failed' }, 500);
-
+  // 2. The cover at any stage (a check constraint keeps it inside this Sendoff's own folder);
+  //    the entries' media only once it is open, and only for approved entries.
   const allowed = new Set<string>();
-  for (const r of rows ?? []) {
+  if (sendoff.recipient_photo_path) allowed.add(sendoff.recipient_photo_path);
+  let rows: { storage_path: string; processed_path: string | null; poster_path: string | null }[] = [];
+  if (sendoff.state === 'open') {
+    const { data, error: mErr } = await admin.from('media')
+      .select('storage_path, processed_path, poster_path, contributions!inner(sendoff_id, status)')
+      .eq('contributions.sendoff_id', sendoff.id).eq('contributions.status', 'approved');
+    if (mErr) return json({ error: 'media lookup failed' }, 500);
+    rows = data ?? [];
+  }
+  for (const r of rows) {
     for (const p of [r.storage_path, r.processed_path, r.poster_path]) if (p) allowed.add(p);
   }
   const wanted = [...new Set(paths)].filter((p) => allowed.has(p));
+  if (!wanted.length && sendoff.state !== 'open') return json({ error: 'sealed' }, 403);
 
   // 3. Sign. Processed files live in `processed`, originals in `uploads`; paths carry no bucket,
   //    so try processed first for anything the processor wrote.
   const urls: Record<string, string> = {};
   const byBucket: Record<'processed' | 'uploads', string[]> = { processed: [], uploads: [] };
-  const processedPaths = new Set((rows ?? []).flatMap((r) => [r.processed_path, r.poster_path].filter(Boolean) as string[]));
+  const processedPaths = new Set(rows.flatMap((r) => [r.processed_path, r.poster_path].filter(Boolean) as string[]));
   for (const p of wanted) byBucket[processedPaths.has(p) ? 'processed' : 'uploads'].push(p);
 
   for (const bucket of ['processed', 'uploads'] as const) {

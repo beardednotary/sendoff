@@ -73,8 +73,9 @@ The web pages (contribute, reveal, QR card, landing) followed the same day: same
 seal held to open (Enter opens it from the keyboard), Newsreader standing in for New York off
 Apple devices, the system sans instead of Inter.
 
-Not yet: the cover photo is kept on device and in the mock stores only (neither `SupabaseStore`
-nor the web's Supabase store uploads it to Storage or signs it for the recipient yet).
+The cover photo goes through Supabase (0005_cover_photo.sql): the app shrinks it to 1600 points
+and uploads it to `uploads/{sendoff_id}/cover/`, the organizer's library signs it, and the
+recipient's link gets it from `sign-media`, sealed or open, so it can sit blurred behind the seal.
 
 ## Decisions for the owner (as proposed)
 

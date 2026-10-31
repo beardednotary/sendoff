@@ -307,10 +307,19 @@ struct CreateFlow: View {
 
     // MARK: Actions
 
+    /// Library photos arrive as HEIC or full-size JPEG. The cover never needs more than 1600 points
+    /// on the long side, so it is redrawn smaller and saved as JPEG before anything is uploaded.
     private func loadPhoto(_ item: PhotosPickerItem?) async {
-        guard let item, let data = try? await item.loadTransferable(type: Data.self) else { return }
+        guard let item, let data = try? await item.loadTransferable(type: Data.self),
+              let image = UIImage(data: data) else { return }
+        let scale = min(1, 1600 / max(image.size.width, image.size.height))
+        let size = CGSize(width: (image.size.width * scale).rounded(), height: (image.size.height * scale).rounded())
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = 1
+        let resized = UIGraphicsImageRenderer(size: size, format: format).image { _ in image.draw(in: CGRect(origin: .zero, size: size)) }
+        guard let jpeg = resized.jpegData(compressionQuality: 0.82) else { return }
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".jpg")
-        try? data.write(to: url)
+        try? jpeg.write(to: url)
         draft.recipientPhoto = url
     }
 

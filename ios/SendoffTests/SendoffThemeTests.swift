@@ -117,6 +117,16 @@ final class ModelTests: XCTestCase {
         XCTAssertEqual(s.recipientInitial, "A")
     }
 
+    /// The storage policies only recognise lowercase ids, and the cover must sit in its own folder.
+    func testStoragePathsMatchTheDatabaseRules() throws {
+        let id = try XCTUnwrap(UUID(uuidString: "ABCDEF01-2345-6789-ABCD-EF0123456789"))
+        let uuid = "[0-9a-f-]{36}"
+        let cover = StoragePath.cover(id)
+        XCTAssertNotNil(cover.range(of: "^abcdef01-2345-6789-abcd-ef0123456789/cover/\(uuid)\\.jpg$", options: .regularExpression), cover)
+        let media = StoragePath.media(id, id, id, ext: "m4a")
+        XCTAssertNotNil(media.range(of: "^\(uuid)/\(uuid)/\(uuid)\\.m4a$", options: .regularExpression), media)
+    }
+
     func testOccasionPromptsExist() {
         for o in Occasion.allCases { XCTAssertGreaterThanOrEqual(o.prompts.count, 3, o.title) }
     }
