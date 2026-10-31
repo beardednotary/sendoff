@@ -160,7 +160,7 @@ app or the site is built. It renders both the contribute page and the reveal.
 `ios/Config/Local.xcconfig` (into Info.plist and the associated-domains entitlement) and the web
 reads `VITE_PUBLIC_ORIGIN`. Three things must point at it:
 
-1. DNS for the web host (Vercel, Netlify or Cloudflare Pages) serving `web/app/dist`.
+1. DNS for the web host (Cloudflare, `web/app/wrangler.jsonc`) serving `web/app/dist`.
 2. `web/app/public/.well-known/apple-app-site-association`, with `TEAMID` replaced by the Apple
    team id, served as `application/json` with no redirect. Universal links and the App Clip
    depend on it.

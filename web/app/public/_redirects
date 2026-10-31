@@ -1,3 +1,0 @@
-# Netlify and Cloudflare Pages: every route is the single-page app. Real files (assets,
-# /.well-known/apple-app-site-association) are served first and never rewritten.
-/*  /index.html  200

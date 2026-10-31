@@ -1,4 +1,4 @@
-# Netlify and Cloudflare Pages. Apple fetches this file without an extension and needs JSON.
+# Cloudflare (web/app/wrangler.jsonc). Apple fetches this file without an extension and needs JSON.
 /.well-known/apple-app-site-association
   Content-Type: application/json
 

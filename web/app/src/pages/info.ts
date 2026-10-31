@@ -43,7 +43,7 @@ export function privacyPage(): void {
     ['What we do not do',
       'No advertising, no tracking across apps or sites, no analytics, no selling or sharing your data. Sendoff does not read your contacts or your photo library beyond the items you pick.'],
     ['Who stores it',
-      'Entries, media and accounts are stored with Supabase, our database and storage provider. The website is served by Netlify. Both process data only to run Sendoff. Purchases are handled entirely by Apple; we receive a record that a purchase happened, not your payment details.'],
+      'Entries, media and accounts are stored with Supabase, our database and storage provider. The website is served by Cloudflare. Both process data only to run Sendoff. Purchases are handled entirely by Apple; we receive a record that a purchase happened, not your payment details.'],
     ['How long we keep it, and deleting it',
       'A Sendoff is kept until the person who started it deletes it, so the person it is for can come back to it. You can change or remove your own entry until the Sendoff is sealed. The organizer can hide or delete any entry at any time.',
       `To have a Sendoff, an entry or an account deleted, or to ask what we hold about you, write to ${SUPPORT_EMAIL}.`],

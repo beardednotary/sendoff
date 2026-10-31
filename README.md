@@ -98,15 +98,18 @@ run the script again; it uploads them to the public `stock-music` bucket.
 
 ## The website
 
-sendoffapp.com is served by Netlify (site `sendoffapp`, team `beardednotary`). DNS stays at
-Namecheap: `A @ 75.2.60.5` and `CNAME www sendoffapp.netlify.app`; `www` redirects to the bare
-domain, which must serve `/.well-known/apple-app-site-association` itself (team `QNK434TFA6`).
-Netlify's team-login protection is on for non-production deploys only.
+sendoffapp.com is served by Cloudflare: the Worker `sendoffapp` (static assets only, no code;
+`web/app/wrangler.jsonc`) on the Cloudflare account rayrothwell1@gmail.com, attached to the bare
+domain as a custom domain. The domain is registered at Namecheap with its nameservers on
+Cloudflare. `www` is a proxied `CNAME` to the bare domain, and a redirect rule on the zone sends
+it to the bare domain, which must serve `/.well-known/apple-app-site-association` itself (team
+`QNK434TFA6`). Mail for the domain, including support@sendoffapp.com, is hosted by Purelymail;
+its MX, SPF, DKIM and DMARC records sit in the same Cloudflare zone and are DNS only, never proxied.
 
-Deploy from the repo root after `npx netlify-cli login` (build settings are in `netlify.toml`):
+Deploy after `npx wrangler login` (it builds first):
 
 ```bash
-cd web/app && npm run build && cd ../.. && npx netlify-cli deploy --prod --site sendoffapp --dir web/app/dist
+cd web/app && npm run deploy
 ```
 
 A build without Supabase keys is the public landing, `/privacy` and `/support`; Sendoff links

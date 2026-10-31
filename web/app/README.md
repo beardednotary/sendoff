@@ -35,9 +35,10 @@ npm run e2e          # build, serve, run e2e/smoke.mjs in headless Chromium (nee
 
 ## Deploy
 
-Live on Netlify at sendoffapp.com; the command and DNS are in the root README ("The website").
-`public/_redirects` and `public/_headers` carry the SPA rewrite, the JSON type for
-`/.well-known/apple-app-site-association`, and `noindex` / `no-referrer` on every `/s/` link.
+Live on Cloudflare at sendoffapp.com (`npm run deploy`); the account and DNS are in the root
+README ("The website"). `wrangler.jsonc` serves `index.html` for any path that matches no file,
+which is the SPA rewrite. `public/_headers` sets the JSON type for
+`/.well-known/apple-app-site-association` and `noindex` / `no-referrer` on every `/s/` link.
 Newsreader is served from `public/fonts/` (SIL OFL) so no page calls a third party. The keys are
 read at build time from `.env.local` (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`,
 `VITE_PUBLIC_ORIGIN`).
