@@ -2,7 +2,7 @@
   "applinks": {
     "details": [
       {
-        "appIDs": ["TEAMID.com.dahvio.sendoff"],
+        "appIDs": ["QNK434TFA6.com.dahvio.sendoff"],
         "components": [
           { "/": "/s/*", "comment": "Contribute and reveal links open in the app when installed" }
         ]
@@ -10,6 +10,6 @@
     ]
   },
   "appclips": {
-    "apps": ["TEAMID.com.dahvio.sendoff.Clip"]
+    "apps": ["QNK434TFA6.com.dahvio.sendoff.Clip"]
   }
 }

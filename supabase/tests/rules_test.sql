@@ -235,6 +235,13 @@ select id, 'cccccccc-0000-0000-0000-000000000003', 'Parent', 'Thank you.' from s
 do $$ begin
   assert (select status from contributions where author_name = 'Parent') = 'pending', 'review mode starts pending';
 end $$;
+
+-- Attaching media fires the process-media trigger, which stays quiet without Vault and pg_net
+insert into media (contribution_id, kind, storage_path)
+select id, 'voice', sendoff_id || '/' || id || '/voice.m4a' from contributions where author_name = 'Parent';
+do $$ begin
+  assert (select count(*) from media) = 1, 'a contributor can attach media with the dispatch trigger in place';
+end $$;
 select test_as('aaaaaaaa-0000-0000-0000-000000000001') as _ \gset
 update sendoffs set state = 'open' where slug = 'mr-patel';
 select test_as('dddddddd-0000-0000-0000-000000000004') as _ \gset

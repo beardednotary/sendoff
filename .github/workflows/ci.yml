@@ -39,5 +39,22 @@ jobs:
         env:
           PGBIN: /usr/lib/postgresql/16/bin
 
-  # The iOS build needs a Mac runner (macos-14, xcodegen, xcodebuild). Add it once the
-  # project compiles locally; see README "Run the iOS app".
+  ios:
+    name: iOS build and unit tests
+    # supabase-swift needs Swift tools 6.1 (Xcode 16.3 or later); the latest image has it.
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: ios
+    steps:
+      - uses: actions/checkout@v4
+      - run: brew install xcodegen
+      - name: Generate the project (MockStore, no signing)
+        run: |
+          sed -e 's/^SUPABASE_ANON_KEY = .*/SUPABASE_ANON_KEY =/' -e 's/^DEVELOPMENT_TEAM = .*/DEVELOPMENT_TEAM =/' \
+            Config/Local.xcconfig.example > Config/Local.xcconfig
+          xcodegen generate
+      - name: Build the app and App Clip, run the unit tests
+        run: |
+          udid=$(xcrun simctl list devices available -j | jq -r '[.devices[][] | select(.name | startswith("iPhone"))][0].udid')
+          xcodebuild -project Sendoff.xcodeproj -scheme Sendoff -destination "id=$udid" test CODE_SIGNING_ALLOWED=NO

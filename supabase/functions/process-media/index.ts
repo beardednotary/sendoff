@@ -12,9 +12,9 @@
 //     leaves audio/video `uploaded` with a note. Enough to run the product end to end today.
 //   - `mux`: creates a Mux asset from a signed URL of the upload. Fill in MUX_TOKEN_ID/SECRET.
 //
-// Deploy:  supabase functions deploy process-media
-// Webhook: Database > Webhooks > table `media`, event INSERT, URL of this function,
-//          header Authorization: Bearer <service role key>.
+// Deploy:  supabase/setup.sh (or supabase functions deploy process-media --use-api)
+// Webhook: the `media_dispatch` trigger in migrations/0004_media_webhook.sql posts each insert
+//          here with Authorization: Bearer <service role key>, read from Vault.
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 

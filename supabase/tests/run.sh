@@ -3,6 +3,7 @@
 # Needs postgresql 16 binaries (brew install postgresql@16 / apt install postgresql-16).
 # Usage: supabase/tests/run.sh
 set -euo pipefail
+export LC_ALL=C   # macOS Postgres refuses to start under some locales
 
 here="$(cd "$(dirname "$0")" && pwd)"
 root="$(cd "$here/../.." && pwd)"

@@ -39,7 +39,7 @@ web/prototype/          Static design prototype the site was built from
 ```bash
 brew install xcodegen
 cd ios
-cp Config/Local.xcconfig.example Config/Local.xcconfig   # team id; domain is sendoffapp.com; Supabase keys optional
+cp Config/Local.xcconfig.example Config/Local.xcconfig   # team QNK434TFA6; supabase/setup.sh fills the keys
 xcodegen generate
 open Sendoff.xcodeproj
 ```
@@ -68,6 +68,7 @@ themes.
 
 ```bash
 supabase/tests/run.sh      # needs postgresql 16 binaries; starts a throwaway cluster
+# on a Mac: brew install postgresql@16, then PGBIN=/opt/homebrew/opt/postgresql@16/bin supabase/tests/run.sh
 ```
 
 Applies the migrations on plain Postgres (with stubs for the `auth` and `storage` schemas) and
@@ -77,27 +78,61 @@ once, review mode never leaks a pending entry. CI runs it on every push.
 
 ## Set up the backend
 
-1. Create a Supabase project. Run `supabase/migrations/0001_init.sql`, `0002_web.sql`, `0003_payments.sql`.
-2. Enable anonymous sign-ins and email magic links in Auth settings. Add `https://sendoffapp.com`
-   to the redirect URLs.
-3. Deploy the functions: `supabase functions deploy sign-media --no-verify-jwt` and
-   `supabase functions deploy process-media`; add a database webhook on `media` INSERT to the
-   latter with the service-role bearer header.
-4. Put the project URL and anon key in `ios/Config/Local.xcconfig` and `web/app/.env.local`.
-5. Upload stock tracks to the `stock-music` bucket as `last_light.m4a` etc. (buy a royalty-free pack).
+```bash
+brew install supabase/tap/supabase
+supabase login                       # opens the browser
+supabase/setup.sh <project-ref>      # from the dashboard URL: supabase.com/dashboard/project/<ref>
+```
+
+Create the project in the dashboard first (any region; note the database password, linking asks
+for it). The script is safe to re-run. It links the project, applies the migrations, pushes the
+auth settings in `supabase/config.toml` (anonymous sign-ins on, `https://sendoffapp.com` as the
+site URL), deploys `sign-media` and `process-media`, stores the project URL and service role key
+in Vault for the `media` trigger (`0004_media_webhook.sql`, which replaces the dashboard
+webhook), and writes the URL and anon key into `ios/Config/Local.xcconfig` and
+`web/app/.env.local`.
+
+Stock music: put the four licensed tracks in `supabase/stock-music/` (gitignored) named by track
+id, `warm_piano.m4a`, `bright_strings.m4a`, `reflective_guitar.m4a`, `triumphant_brass.m4a`, and
+run the script again; it uploads them to the public `stock-music` bucket.
+
+## Host the web app
+
+`npm run build` in `web/app`, then deploy `dist/` to Cloudflare Pages, Netlify or Vercel. The SPA
+rewrite and the JSON content type Apple needs for `/.well-known/apple-app-site-association` are
+already in `public/_redirects`, `public/_headers` and `vercel.json`. Set `VITE_SUPABASE_URL`,
+`VITE_SUPABASE_ANON_KEY` and `VITE_PUBLIC_ORIGIN` in the host's environment, then point
+`sendoffapp.com` at it. The association file carries team `QNK434TFA6`.
+
+## App Store Connect
+
+Create these in-app purchases with exactly these ids (they match `ios/Sendoff.storekit`):
+
+| Product id | Type | Price |
+|---|---|---|
+| `sendoff.single` | Consumable | $9.99 |
+| `sendoff.plus` | Consumable | $19.99 |
+| `sendoff.pack5` | Consumable | $39.00 |
+| `sendoff.pack10` | Consumable | $69.00 |
+| `theme.gold_leaf` | Non-consumable | $4.99 |
+| `theme.darkroom` | Non-consumable | $4.99 |
+| `theme.field_day` | Non-consumable | $4.99 |
+
+Then add the App Clip experience for `https://sendoffapp.com/s/` once the domain serves the
+association file.
 
 ## Status
 
-Foundation. Everything in the iOS app is wired to the store protocol and runs against mock
-data. Written on a PC, so it has not been compiled yet. First step on the Mac is
-`xcodegen generate` and a build; expect a handful of compiler nits to clean up.
+The iOS app and App Clip build with Xcode 27 and run in the simulator against `MockStore`; the
+19 unit tests pass, and CI builds and tests on a macOS runner. A Release device build succeeds and
+the App Clip is 7.9 MB uncompressed (the limit is 15 MB).
 
 The web app is built and tested end to end against the mock (reveal, countdown, contribute
-with edit and photo attach, QR card). The backend functions and storage policies it needs are
-written but not deployed.
+with edit and photo attach, QR card). The database rules pass on plain Postgres. Nothing is
+deployed yet: the backend waits on `supabase/setup.sh`, the site on a host and DNS.
 
 Payments are in: StoreKit 2 purchase manager, paywall after entries arrive, credits and
 redemption in both stores, limits enforced by the database.
 
-Next: Xcode build, Supabase deploy, stock music, App Store Connect products (and the App Clip
-experience card), Mux adapter and transcripts, `TEAMID` in `web/app/public/.well-known/apple-app-site-association`.
+Next: run `supabase/setup.sh`, host the web build, App Store Connect products and the App Clip
+experience, stock music, then the Mux adapter and transcripts.
