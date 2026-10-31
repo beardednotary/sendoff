@@ -6,7 +6,7 @@ data, or an in-memory mock when no keys are configured.
 | Route | Who | What |
 |---|---|---|
 | `/s/{slug}?t={token}` | Contributor | Add a note, photos, a voice note or a video. No account. Come back and change it until the seal. |
-| `/s/{slug}/open?k={key}` | Recipient | The sealed envelope. Countdown until `opens_at`, then music, one entry at a time, keepsake, print to PDF. |
+| `/s/{slug}/open?k={key}` | Recipient | The seal over their photo. Countdown until `opens_at`, then press and hold (Enter from the keyboard), music, one entry at a time, keepsake, print to PDF. |
 | `/s/{slug}/qr?t={token}` | Organizer | Printable QR card for the break room or inside a real card. |
 | `/` | Anyone | One screen. In mock mode it links to the three demo Sendoffs. |
 

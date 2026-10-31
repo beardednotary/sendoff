@@ -5,9 +5,9 @@ export type Motion = 'lift' | 'turn' | 'fade';
 export interface ThemeMeta { id: ThemeID; name: string; paper: string; motion: Motion; premium: boolean }
 
 export const Themes: Record<ThemeID, ThemeMeta> = {
-  letterpress: { id: 'letterpress', name: 'Letterpress', paper: '#F4EFE6', motion: 'lift', premium: false },
-  midnight_toast: { id: 'midnight_toast', name: 'Midnight Toast', paper: '#0F1B2D', motion: 'lift', premium: false },
-  chalk: { id: 'chalk', name: 'Chalk', paper: '#2F4A3E', motion: 'turn', premium: false },
+  letterpress: { id: 'letterpress', name: 'Paper', paper: '#F5F3EF', motion: 'lift', premium: false },
+  midnight_toast: { id: 'midnight_toast', name: 'Evening', paper: '#0E0E0D', motion: 'lift', premium: false },
+  chalk: { id: 'chalk', name: 'Blackboard', paper: '#18211C', motion: 'turn', premium: false },
   gold_leaf: { id: 'gold_leaf', name: 'Gold Leaf', paper: '#F6F1E7', motion: 'lift', premium: true },
   darkroom: { id: 'darkroom', name: 'Darkroom', paper: '#0B0B0C', motion: 'fade', premium: true },
   field_day: { id: 'field_day', name: 'Field Day', paper: '#2E7D4F', motion: 'turn', premium: true },

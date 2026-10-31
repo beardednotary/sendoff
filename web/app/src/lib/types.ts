@@ -39,6 +39,8 @@ export interface RevealSendoff {
   organizerName: string;
   contributorCount: number;
   plan: 'free' | 'single' | 'plus' | 'org';
+  /** Their photo for the cover. Optional; the iOS app sets it when the Sendoff is made. */
+  recipientPhotoUrl: string | null;
 }
 
 export interface Media {
@@ -141,10 +143,25 @@ export function signatureOf(c: Pick<Contribution, 'authorName' | 'authorRelation
   return c.authorRelationship ? `${c.authorName} · ${c.authorRelationship}` : c.authorName;
 }
 
+const titles = new Set(['mr', 'mrs', 'ms', 'mx', 'miss', 'dr', 'prof', 'coach', 'sgt', 'capt', 'col', 'lt', 'rev', 'fr', 'sr', 'sister', 'brother']);
+
+/** What to call them mid-sentence: "Maria", or "Mr. Patel" when the name starts with a title.
+ *  Same rule as `Sendoff.callName` on iOS. */
 export function firstName(full: string): string {
-  return full.trim().split(/\s+/)[0] ?? full;
+  const words = full.trim().split(/\s+/);
+  const first = words[0] ?? full;
+  if (words.length > 1 && titles.has(first.toLowerCase().replace(/\./g, ''))) return `${first} ${words[1]}`;
+  return first;
 }
 
+/** The letter on the seal: "M" for Maria Reyes, "P" for Mr. Patel. */
 export function initialOf(full: string): string {
-  return (full.trim()[0] ?? '?').toUpperCase();
+  const call = firstName(full).split(' ');
+  const word = call.length > 1 ? call[1] ?? '' : full.trim();
+  return (word[0] ?? '?').toUpperCase();
+}
+
+/** Short notes are set large, long letters smaller: the same steps as the iOS reveal. */
+export function entrySize(text: string): 'short' | 'medium' | '' {
+  return text.length <= 140 ? 'short' : text.length <= 420 ? 'medium' : '';
 }

@@ -172,6 +172,8 @@ export class SupabaseStore implements WebStore {
       id: r.id, slug, recipientName: r.recipient_name, occasion: r.occasion, fromLine: r.from_line, coverMessage: r.cover_message,
       themeId: r.theme_id, musicTrackId: r.music_track_id, state: r.state, reveal: r.reveal, opensAt: date(r.opens_at),
       organizerName: r.organizer_name ?? 'the organizer', contributorCount: r.contributor_count ?? 0, plan: r.plan ?? 'free',
+      // The cover photo is not stored or signed for the recipient yet (same gap as the iOS app).
+      recipientPhotoUrl: null,
     };
   }
 

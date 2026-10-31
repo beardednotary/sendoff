@@ -18,30 +18,26 @@ const MARIA: MockSendoff = {
   fromLine: 'From the whole fourth floor', coverMessage: 'Thirty-one years. We tried to fit it in here.',
   themeId: 'midnight_toast', musicTrackId: 'warm_piano', state: 'sealed', reveal: 'on_date',
   opensAt: new Date(now - 3_600_000), closesAt: new Date(now - 2 * day), organizerName: 'Dan Okafor',
-  contributorCount: 6, plan: 'plus', moderation: 'trust',
+  contributorCount: 6, plan: 'plus', moderation: 'trust', recipientPhotoUrl: unsplash('photo-1695556746253-ab635cedac50'),
 };
 const PATEL: MockSendoff = {
   id: '22222222-2222-2222-2222-222222222222', slug: 'mr-patel', recipientName: 'Mr. Patel', occasion: 'teacher',
   fromLine: 'Room 14', coverMessage: null, themeId: 'chalk', musicTrackId: 'reflective_guitar', state: 'sealed',
   reveal: 'on_date', opensAt: new Date(now + 5 * day + 3 * 3_600_000), closesAt: new Date(now + 3 * day),
   organizerName: 'Dan Okafor', contributorCount: 11, plan: 'single', moderation: 'review',
+  recipientPhotoUrl: unsplash('photo-1578593139939-cccb1e98698c'),
 };
 const JO: MockSendoff = {
   id: '33333333-3333-3333-3333-333333333333', slug: 'jo-moves', recipientName: 'Jo Lindqvist', occasion: 'new_job',
   fromLine: 'Platform team', coverMessage: null, themeId: 'letterpress', musicTrackId: 'bright_strings',
   state: 'collecting', reveal: 'manual', opensAt: null, closesAt: new Date(now + 9 * day),
   organizerName: 'Dan Okafor', contributorCount: 4, plan: 'single', moderation: 'trust',
+  recipientPhotoUrl: unsplash('photo-1631885627929-0ea00ff4bf06'),
 };
 
-function photo(w: number, h: number, hue: number, label: string): string {
-  const s = `<svg xmlns='http://www.w3.org/2000/svg' width='${w}' height='${h}' viewBox='0 0 ${w} ${h}'>
-    <defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='hsl(${hue},40%,70%)'/><stop offset='1' stop-color='hsl(${hue + 40},45%,45%)'/></linearGradient></defs>
-    <rect width='${w}' height='${h}' fill='url(#g)'/>
-    <circle cx='${w * 0.7}' cy='${h * 0.3}' r='${h * 0.12}' fill='rgba(255,255,255,0.55)'/>
-    <path d='M0 ${h} L${w * 0.3} ${h * 0.55} L${w * 0.5} ${h * 0.75} L${w * 0.72} ${h * 0.45} L${w} ${h * 0.8} L${w} ${h} Z' fill='rgba(0,0,0,0.25)'/>
-    <text x='${w / 2}' y='${h * 0.92}' font-family='Georgia' font-size='${h * 0.07}' fill='rgba(255,255,255,0.8)' text-anchor='middle'>${label}</text>
-  </svg>`;
-  return `data:image/svg+xml;utf8,${encodeURIComponent(s)}`;
+/** Demo photography from Unsplash (free licence), the same pictures as the iOS MockStore. */
+function unsplash(id: string, w = 1200): string {
+  return `https://images.unsplash.com/${id}?w=${w}&q=80&auto=format&fit=crop`;
 }
 
 function media(kind: Media['kind'], extra: Partial<Media> = {}): Media {
@@ -57,19 +53,19 @@ function c(sendoffId: string, name: string, rel: string | null, body: string | n
 
 const MARIA_ENTRIES: Contribution[] = [
   c(MARIA.id, 'Dan Okafor', 'Your manager, somehow', 'Maria. You hired me when I had no business being hired. You spent the first year quietly fixing what I broke and the next nine teaching me not to break it. Every good habit I have at work is one of yours.\n\nEnjoy the mornings.', 18, { pinned: true }),
-  c(MARIA.id, 'Priya N.', 'Your 2019 intern', 'You said "the deadline is real, the panic is optional." I have it on a sticky note. Still.', 12),
+  c(MARIA.id, 'Priya N.', 'Your 2019 intern', 'You said \u201Cthe deadline is real, the panic is optional.\u201D I have it on a sticky note. Still.', 12),
   c(MARIA.id, 'Tom Alvarez', 'Facilities', null, 10, {
-    media: [media('voice', { durationSeconds: 48, transcript: "Hey Maria, it's Tom. I just wanted to say... you were the only one who learned my kids' names." })],
+    media: [media('voice', { durationSeconds: 48, transcript: 'Hey Maria, it\u2019s Tom. I just wanted to say\u2026 you were the only one who learned my kids\u2019 names.' })],
   }),
   c(MARIA.id, 'The Wednesday lunch crew', null, 'We are not going to survive Wednesdays.', 7, {
     media: [
-      media('photo', { url: photo(1200, 900, 28, 'Wednesday, March'), width: 1200, height: 900 }),
-      media('photo', { url: photo(1200, 900, 200, 'The good table'), width: 1200, height: 900 }),
-      media('photo', { url: photo(1200, 900, 120, 'Birthday cake, 2023'), width: 1200, height: 900 }),
+      media('photo', { url: unsplash('photo-1670899460364-ebc917bac09a'), width: 1200, height: 900 }),
+      media('photo', { url: unsplash('photo-1554902748-feaf536fc594'), width: 1200, height: 900 }),
+      media('photo', { url: unsplash('photo-1568992688065-536aad8a12f6'), width: 1200, height: 900 }),
     ],
   }),
   c(MARIA.id, 'Lena Fischer', 'Finance', null, 5, {
-    media: [media('video', { durationSeconds: 41, width: 1280, height: 720, posterUrl: photo(1280, 720, 330, 'Lena') })],
+    media: [media('video', { durationSeconds: 41, width: 1280, height: 720, posterUrl: unsplash('photo-1702468025332-e23ca9075058') })],
   }),
   c(MARIA.id, 'Sam', 'The new guy', "I've been here six weeks. You still made time. That told me everything about this place.", 3),
 ];

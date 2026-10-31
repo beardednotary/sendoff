@@ -3,28 +3,33 @@ import { applyTheme } from '../lib/themes';
 import { getStore } from '../lib/store';
 
 // "/" — one screen. The product lives in the app and behind links; this is for the curious.
+// Follows the visitor's light or dark setting, like the app: Evening in dark, Paper in light.
 
 export async function landingPage(): Promise<void> {
-  applyTheme('letterpress');
+  const dark = matchMedia('(prefers-color-scheme: dark)');
+  applyTheme(dark.matches ? 'midnight_toast' : 'letterpress');
+  dark.addEventListener('change', (e) => applyTheme(e.matches ? 'midnight_toast' : 'letterpress'));
   setTitle('Sendoff');
   const store = await getStore();
   mount(h('main', { class: 'hero' },
-    svg(Icons.pathmark.replace('class="pathmark"', 'class="pathmark" style="--s:72px"')),
-    h('h1', { class: 'display' }, 'Sendoff'),
-    h('p', { class: 'ui muted', style: 'margin:0; max-width:36ch; justify-self:center' },
-      'A private, sealed group keepsake for retirements, graduations and goodbyes. Everyone adds something. Only the person leaving sees it all.'),
-    h('p', { class: 'signature' }, 'Kudoboard is a bulletin board. Sendoff is a sealed envelope.'),
-    h('div', { class: 'stack', style: 'max-width:360px; width:100%; justify-self:center; margin-top:10px' },
-      h('a', { class: 'btn', href: '#', onclick: (e: Event) => e.preventDefault() }, 'Get the iPhone app'),
-      h('p', { class: 'caption center', style: 'margin:0' }, 'Organizers start one in the app. Everyone else just needs the link.'),
+    h('div', { style: 'height:52px; display:flex; align-items:center' }, svg(Icons.pathmark)),
+    h('div', { class: 'lead' },
+      h('p', { class: 'eyebrow' }, 'Sendoff'),
+      h('h1', { class: 'display' }, 'Everyone adds privately.', h('br'), 'One person opens it, on the day.'),
+      h('p', { class: 'body', style: 'max-width:40ch' },
+        'A sealed group keepsake for retirements, graduations and goodbyes. The card passed around the office gets lost; this stays sealed until the day, and only they read it.'),
+      h('div', { class: 'row', style: 'margin-top:8px; flex-wrap:wrap' },
+        h('a', { class: 'btn primary', href: '#', onclick: (e: Event) => e.preventDefault() }, 'Get the iPhone app'),
+      ),
+      h('p', { class: 'caption' }, 'Organizers start one in the app. Everyone else just needs the link.'),
     ),
-    store.isMock && h('div', { class: 'stack', style: 'max-width:420px; width:100%; justify-self:center; margin-top:30px' },
-      h('div', { class: 'caption center' }, 'Demo (no backend configured)'),
+    store.isMock && h('section', { style: 'margin-top:48px' },
+      h('p', { class: 'eyebrow' }, 'Demo, no backend configured'),
       h('div', { class: 'demo-links' },
-        h('a', { href: '/s/maria-r/open?k=demo' }, h('span', {}, 'Maria Reyes · the reveal'), h('span', { class: 'caption' }, 'opens now')),
-        h('a', { href: '/s/mr-patel/open?k=demo' }, h('span', {}, 'Mr. Patel · sealed'), h('span', { class: 'caption' }, 'countdown')),
-        h('a', { href: '/s/jo-moves?t=demo' }, h('span', {}, 'Jo Lindqvist · add yours'), h('span', { class: 'caption' }, 'contribute')),
-        h('a', { href: '/s/jo-moves/qr?t=demo' }, h('span', {}, 'Jo Lindqvist · QR card'), h('span', { class: 'caption' }, 'print')),
+        h('a', { href: '/s/maria-r/open?k=demo' }, h('span', { class: 'name' }, 'Maria Reyes'), h('span', { class: 'caption' }, 'The reveal')),
+        h('a', { href: '/s/mr-patel/open?k=demo' }, h('span', { class: 'name' }, 'Mr. Patel'), h('span', { class: 'caption' }, 'Sealed, counting down')),
+        h('a', { href: '/s/jo-moves?t=demo' }, h('span', { class: 'name' }, 'Jo Lindqvist'), h('span', { class: 'caption' }, 'Add yours')),
+        h('a', { href: '/s/jo-moves/qr?t=demo' }, h('span', { class: 'name' }, 'Jo Lindqvist'), h('span', { class: 'caption' }, 'QR card')),
       ),
     ),
   ));

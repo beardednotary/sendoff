@@ -1,4 +1,4 @@
-import { h, mount, Icons, svg, setTitle, clear } from '../lib/dom';
+import { h, mount, Icons, svg, setTitle, clear, seal } from '../lib/dom';
 import { getStore } from '../lib/store';
 import { applyTheme, Occasions, occasionTitle } from '../lib/themes';
 import { longDate, clock } from '../lib/format';
@@ -38,51 +38,48 @@ export async function contributePage(slug: string, token: string | null): Promis
 }
 
 function header(s: PublicSendoff): HTMLElement {
-  return h('header', { class: 'stack' },
-    h('div', { class: 'between', style: 'align-items:flex-start' },
-      h('div', { class: 'stack', style: 'gap:8px' },
-        h('span', { class: 'stamp' }, occasionTitle(s.occasion)),
-        h('h1', { class: 'display' }, `For ${s.recipientName}`),
-        s.fromLine && h('div', { class: 'signature' }, s.fromLine),
-      ),
-      h('div', { class: 'seal-mark', style: '--s:56px', 'aria-hidden': 'true' }, initialOf(s.recipientName)),
-    ),
-    s.closesAt && h('div', { class: 'caption' }, `Add yours by ${longDate(s.closesAt)}`),
-    h('hr', { class: 'rule' }),
+  const first = firstName(s.recipientName);
+  return h('header', { class: 'stack', style: 'gap:0' },
+    h('div', { style: 'display:flex; justify-content:center; padding:6px 0 18px' }, seal(initialOf(s.recipientName), 40)),
+    h('p', { class: 'eyebrow' }, `For ${s.recipientName} · ${occasionTitle(s.occasion)}`),
+    h('h1', { class: 'display', style: 'margin-top:10px' }, 'Write something', h('br'), `only ${first} will read.`),
+    h('p', { class: 'caption privacy', style: 'margin-top:12px' }, svg(Icons.lock),
+      h('span', {}, `Only ${first} and ${s.organizerName} will see this. Nobody else who adds can read it.${s.closesAt ? ` Add yours by ${longDate(s.closesAt)}.` : ''}`)),
+  );
+}
+
+/** Thanks and closed: left-aligned, the seal, one line of display type. */
+function endView(s: PublicSendoff, title: string, body: string, ...rest: (HTMLElement | false | null)[]): HTMLElement {
+  return h('main', { class: 'page', style: 'min-height:100vh; min-height:100dvh; display:flex; flex-direction:column; padding-bottom:40px' },
+    h('div', { style: 'margin-top:auto' }, seal(initialOf(s.recipientName), 96)),
+    h('h1', { class: 'display', style: 'margin-top:28px' }, title),
+    h('p', { class: 'body', style: 'margin-top:12px' }, body),
+    ...rest,
+    h('div', { style: 'margin-top:auto; padding-top:48px' }, footerPromo()),
   );
 }
 
 function sealedView(s: PublicSendoff): HTMLElement {
   const first = firstName(s.recipientName);
-  return h('main', { class: 'page stage active center', style: 'align-items:center' },
-    h('div', { class: 'seal-mark', style: '--s:96px', 'aria-hidden': 'true' }, initialOf(s.recipientName)),
-    h('h1', { class: 'title' }, s.state === 'open' ? `${first} has opened it.` : "It's sealed."),
-    h('p', { class: 'ui muted', style: 'margin:0' },
-      s.state === 'open'
-        ? `This Sendoff is no longer collecting. Thank you for being part of it.`
-        : `${s.organizerName} has sealed ${first}'s Sendoff. Nothing more can be added.`),
-    footerPromo(),
-  );
+  return endView(s,
+    s.state === 'open' ? `${first} has opened it.` : "It's sealed.",
+    s.state === 'open'
+      ? 'This Sendoff is no longer collecting. Thank you for being part of it.'
+      : `${s.organizerName} has sealed the Sendoff for ${first}. Nothing more can be added.`);
 }
 
 function footerPromo(): HTMLElement {
-  return h('p', { class: 'caption', style: 'margin-top:40px' },
+  return h('p', { class: 'caption' },
     'Know someone else leaving? ', h('a', { href: '/' }, 'Start a Sendoff of your own.'));
 }
 
 function thanksView(s: PublicSendoff, c: Contribution, onEdit: () => void): HTMLElement {
   const first = firstName(s.recipientName);
-  return h('main', { class: 'page stage active center', style: 'align-items:center' },
-    h('div', { class: 'seal-mark', style: '--s:96px', 'aria-hidden': 'true' }, initialOf(s.recipientName)),
-    h('h1', { class: 'title' }, "It's in the envelope."),
-    h('p', { class: 'ui muted', style: 'margin:0' },
-      c.status === 'pending'
-        ? `${s.organizerName} will take a look before it goes in. ${first} opens it when the time comes.`
-        : `${first} opens it when the time comes. You can come back and change yours until then.`),
-    h('div', { class: 'stack', style: 'width:100%; max-width:420px; margin-top:30px' },
-      h('button', { class: 'btn quiet', onclick: onEdit }, 'Change mine'),
-    ),
-    footerPromo(),
+  return endView(s, "It's in the envelope.",
+    c.status === 'pending'
+      ? `${s.organizerName} will take a look before it goes in. ${first} opens it when the time comes.`
+      : `${first} opens it when the time comes. You can come back and change yours until then.`,
+    h('div', { style: 'margin-top:28px' }, h('button', { class: 'btn small', onclick: onEdit }, 'Change mine')),
   );
 }
 
@@ -102,12 +99,15 @@ function formView(s: PublicSendoff, existing: Contribution | null): HTMLElement 
   const keptMedia = (): Media[] => (existing?.media ?? []).filter((m) => draft.keepMediaIds.includes(m.id));
 
   // Fields
-  const body = h('textarea', { id: 'body', placeholder: `Write something only ${first} will read…`, maxLength: Limits.bodyCharacters, value: draft.body });
+  const body = h('textarea', { id: 'body', class: 'writing', placeholder: 'Start anywhere. A memory, a thank you, something you never said.', maxLength: Limits.bodyCharacters, value: draft.body, 'aria-label': `What you want ${first} to read` });
   const count = h('span', {}, String(draft.body.length));
+  const countLine = h('p', { class: 'caption', hidden: true, style: 'margin-top:8px' }, count, ` / ${Limits.bodyCharacters}`);
+  const grow = () => { body.style.height = 'auto'; body.style.height = `${Math.max(150, body.scrollHeight)}px`; };
+  body.addEventListener('input', grow);
   const name = h('input', { id: 'name', placeholder: 'Your name', autocomplete: 'name', value: draft.authorName });
   const rel = h('input', { id: 'rel', placeholder: 'Your 2019 intern', value: draft.authorRelationship });
-  const share = h('input', { type: 'checkbox', checked: draft.sharedWithGroup });
-  const submit = h('button', { class: 'btn', disabled: true }, svg(Icons.envelope), existing ? 'Save changes' : 'Add yours');
+  const share = h('input', { type: 'checkbox', role: 'switch', checked: draft.sharedWithGroup });
+  const submit = h('button', { class: 'btn primary wide', disabled: true }, existing ? 'Save changes' : 'Add yours');
   const error = h('div', { class: 'notice error', role: 'alert', hidden: true });
   const progress = h('div', { class: 'stack', hidden: true, style: 'gap:6px' }, h('div', { class: 'progress' }, h('i')), h('div', { class: 'caption center' }));
 
@@ -115,6 +115,7 @@ function formView(s: PublicSendoff, existing: Contribution | null): HTMLElement 
   const validate = () => {
     submit.disabled = !(hasContent() && name.value.trim().length > 0);
     count.textContent = String(body.value.length);
+    countLine.hidden = body.value.length < Limits.bodyCharacters - 200;
   };
   body.addEventListener('input', validate);
   name.addEventListener('input', validate);
@@ -137,15 +138,15 @@ function formView(s: PublicSendoff, existing: Contribution | null): HTMLElement 
 
   // Attachments
   const thumbs = h('div', { class: 'thumbs' });
-  const limitsLine = h('div', { class: 'caption', style: 'opacity:.8' }, `Video up to ${Limits.videoSeconds} seconds, voice up to ${Limits.voiceSeconds / 60} minutes, up to ${Limits.photosPerEntry} photos.`);
+  const limitsLine = h('p', { class: 'caption' }, `Video up to ${Limits.videoSeconds} seconds, voice up to ${Limits.voiceSeconds / 60} minutes, up to ${Limits.photosPerEntry} photos.`);
   const recorderHost = h('div');
 
   const photoCount = () => keptMedia().filter((m) => m.kind === 'photo').length + draft.newMedia.filter((m) => m.kind === 'photo').length;
   const has = (k: Media['kind']) => keptMedia().some((m) => m.kind === k) || draft.newMedia.some((m) => m.kind === k);
 
-  const photoBtn = h('button', { type: 'button', onclick: addPhotos }, svg(Icons.photo), 'Photos');
-  const voiceBtn = h('button', { type: 'button', onclick: addVoice }, svg(Icons.voice), 'Voice');
-  const videoBtn = h('button', { type: 'button', onclick: addVideo }, svg(Icons.video), 'Video');
+  const photoBtn = h('button', { class: 'btn small', type: 'button', onclick: addPhotos }, svg(Icons.photo), 'Photo');
+  const voiceBtn = h('button', { class: 'btn small', type: 'button', onclick: addVoice }, svg(Icons.voice), 'Voice');
+  const videoBtn = h('button', { class: 'btn small', type: 'button', onclick: addVideo }, svg(Icons.video), 'Video');
 
   function renderThumbs(): void {
     clear(thumbs);
@@ -219,24 +220,18 @@ function formView(s: PublicSendoff, existing: Contribution | null): HTMLElement 
 
   const main = h('main', { class: 'page' },
     header(s),
-    prompts.length > 0 && h('section', { class: 'stack', style: 'margin-top:26px' }, h('div', { class: 'caption' }, 'Not sure where to start?'), chips),
-    h('section', { class: 'field', style: 'margin-top:22px' }, body, h('div', { class: 'caption', style: 'text-align:right' }, count, ` / ${Limits.bodyCharacters}`)),
-    h('section', { class: 'stack', style: 'gap:12px; margin-top:22px' },
-      h('div', { class: 'caption' }, 'Add to it'),
+    prompts.length > 0 && h('section', { style: 'margin-top:20px' }, chips),
+    h('section', { style: 'margin-top:22px' }, body, countLine),
+    h('section', { class: 'stack', style: 'gap:12px; margin-top:16px' },
       h('div', { class: 'attach' }, photoBtn, voiceBtn, videoBtn),
       recorderHost,
       thumbs,
       limitsLine,
     ),
-    h('hr', { class: 'rule', style: 'margin-top:26px' }),
-    h('section', { class: 'stack', style: 'gap:12px; margin-top:22px' },
+    h('section', { class: 'stack', style: 'gap:14px; margin-top:26px' },
       h('div', { class: 'field' }, h('label', { for: 'name' }, 'Sign it'), name),
       h('div', { class: 'field' }, h('label', { for: 'rel' }, 'How you know them (optional)'), rel),
-    ),
-    h('section', { class: 'stack', style: 'gap:12px; margin-top:26px' },
-      h('div', { class: 'privacy' }, svg(Icons.lock),
-        h('div', { class: 'caption' }, `Only ${first} and ${s.organizerName} will see this. Nobody else who adds to this Sendoff can read it.`)),
-      h('label', { class: 'check caption' }, share, ' Let the others who added read mine too'),
+      h('label', { class: 'switch', style: 'margin-top:4px' }, h('span', {}, 'Let the others who added read mine too'), share),
     ),
     h('section', { class: 'stack', style: 'margin-top:20px' }, error, progress),
     existing && h('p', { class: 'caption center', style: 'margin-top:24px' }, h('button', { class: 'link', type: 'button', onclick: () => mount(thanksView(s, existing, () => mount(formView(s, existing)))) }, 'Never mind, keep it as it was')),
@@ -247,6 +242,7 @@ function formView(s: PublicSendoff, existing: Contribution | null): HTMLElement 
   if (!token()) main.appendChild(h('p', { class: 'caption center no-print', style: 'margin-top:30px; opacity:.6' }, contributeLink(s.slug, null).replace(/^https?:\/\//, '')));
 
   refresh();
+  requestAnimationFrame(grow);
   return main;
 
   function token(): string | null { return new URLSearchParams(location.search).get('t'); }
@@ -302,7 +298,7 @@ function recorderView(onDone: (m: LocalMedia) => void, onCancel: () => void, onE
   });
 
   return h('div', { class: 'recorder' },
-    h('div', { class: 'row', style: 'gap:16px' }, button, h('div', { class: 'stack', style: 'gap:2px; flex:1' }, time, hint)),
+    h('div', { class: 'row', style: 'gap:16px' }, button, h('div', { class: 'stack', style: 'gap:0; flex:1' }, time, hint)),
     wave,
     h('button', { class: 'link caption', type: 'button', style: 'justify-self:start', onclick: () => { rec.cancel(); onCancel(); } }, 'Cancel'),
   );

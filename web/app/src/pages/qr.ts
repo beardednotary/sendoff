@@ -1,5 +1,5 @@
 import QRCode from 'qrcode';
-import { h, mount, svg, Icons, setTitle, toast } from '../lib/dom';
+import { h, mount, svg, Icons, setTitle, toast, seal } from '../lib/dom';
 import { getStore } from '../lib/store';
 import { applyTheme, occasionTitle } from '../lib/themes';
 import { longDate } from '../lib/format';
@@ -29,11 +29,9 @@ export async function qrPage(slug: string, token: string | null): Promise<void> 
   setTitle(`QR card — Sendoff for ${s.recipientName}`);
 
   const link = contributeLink(slug, token);
-  const styles = getComputedStyle(document.documentElement);
-  const ink = styles.getPropertyValue('--ink').trim() || '#1F1D1A';
-  const paper = styles.getPropertyValue('--paper').trim() || '#F4EFE6';
+  // Near-black on warm white in every theme: the code sits on its own tile so it always scans.
   const [screen, print] = await Promise.all([
-    QRCode.toDataURL(link, { errorCorrectionLevel: 'M', margin: 1, scale: 10, color: { dark: ink, light: paper } }),
+    QRCode.toDataURL(link, { errorCorrectionLevel: 'M', margin: 0, scale: 10, color: { dark: '#0E0E0D', light: '#F3F1EC' } }),
     QRCode.toDataURL(link, { errorCorrectionLevel: 'M', margin: 1, scale: 10, color: { dark: '#000000', light: '#ffffff' } }),
   ]);
 
@@ -44,25 +42,27 @@ export async function qrPage(slug: string, token: string | null): Promise<void> 
 
   const first = firstName(s.recipientName);
   mount(h('main', { class: 'page' },
-    h('div', { class: 'between no-print', style: 'margin-bottom:24px' },
-      h('span', { class: 'stamp' }, 'QR card'),
-      h('button', { class: 'btn small quiet', onclick: () => window.print() }, svg(Icons.print), 'Print'),
+    h('div', { class: 'between no-print', style: 'margin-bottom:20px' },
+      h('p', { class: 'eyebrow' }, 'QR card'),
+      h('button', { class: 'btn small', onclick: () => window.print() }, svg(Icons.print), 'Print'),
     ),
     h('div', { class: 'qr-card' },
-      h('div', { class: 'seal-mark', style: '--s:64px', 'aria-hidden': 'true' }, initialOf(s.recipientName)),
-      h('span', { class: 'stamp' }, occasionTitle(s.occasion)),
+      seal(initialOf(s.recipientName), 48),
+      h('p', { class: 'eyebrow', style: 'margin-top:8px' }, occasionTitle(s.occasion)),
       h('h1', { class: 'display' }, `A Sendoff for ${s.recipientName}`),
-      s.fromLine && h('div', { class: 'signature' }, s.fromLine),
-      h('p', { class: 'ui', style: 'margin:0; max-width:34ch' }, `Add a note, a photo, a voice memo or a short video. Only ${first} and ${s.organizerName} will see what you add.`),
-      img,
+      s.fromLine && h('p', { class: 'body' }, s.fromLine),
+      h('p', { class: 'body', style: 'max-width:36ch' }, `Add a note, a photo, a voice memo or a short video. Only ${first} and ${s.organizerName} will see what you add.`),
+      h('div', { class: 'qr' }, img),
       h('div', { class: 'url' }, link.replace(/^https?:\/\//, '')),
-      s.closesAt && h('div', { class: 'caption' }, `Please add yours by ${longDate(s.closesAt)}`),
-      h('div', { class: 'caption print-only', style: 'margin-top:8px' }, 'Made with Sendoff'),
+      s.closesAt && h('p', { class: 'caption' }, `Please add yours by ${longDate(s.closesAt)}`),
+      h('p', { class: 'caption print-only', style: 'margin-top:8px' }, 'Made with Sendoff'),
     ),
-    h('div', { class: 'stack no-print', style: 'margin-top:20px' },
-      h('button', { class: 'btn quiet', onclick: async () => { await navigator.clipboard.writeText(link); toast('Link copied'); } }, 'Copy the link'),
-      h('a', { class: 'btn quiet', href: print, download: `sendoff-${slug}-qr.png` }, 'Download the code as PNG'),
-      h('p', { class: 'caption center' }, 'Tape it in the break room, put it on the table at the party, or tuck it inside a real card.'),
+    h('div', { class: 'stack no-print', style: 'margin-top:16px' },
+      h('div', { class: 'row', style: 'gap:10px' },
+        h('button', { class: 'btn wide', style: 'flex:1', onclick: async () => { await navigator.clipboard.writeText(link); toast('Link copied'); } }, svg(Icons.copy), 'Copy link'),
+        h('a', { class: 'btn wide', style: 'flex:1', href: print, download: `sendoff-${slug}-qr.png` }, svg(Icons.download), 'Save QR'),
+      ),
+      h('p', { class: 'caption', style: 'margin-top:6px' }, 'Tape it in the break room, put it on the table at the party, or tuck it inside a real card.'),
     ),
   ));
 }
