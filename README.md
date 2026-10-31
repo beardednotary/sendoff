@@ -96,13 +96,23 @@ Stock music: put the four licensed tracks in `supabase/stock-music/` (gitignored
 id, `warm_piano.m4a`, `bright_strings.m4a`, `reflective_guitar.m4a`, `triumphant_brass.m4a`, and
 run the script again; it uploads them to the public `stock-music` bucket.
 
-## Host the web app
+## The website
 
-`npm run build` in `web/app`, then deploy `dist/` to Cloudflare Pages, Netlify or Vercel. The SPA
-rewrite and the JSON content type Apple needs for `/.well-known/apple-app-site-association` are
-already in `public/_redirects`, `public/_headers` and `vercel.json`. Set `VITE_SUPABASE_URL`,
-`VITE_SUPABASE_ANON_KEY` and `VITE_PUBLIC_ORIGIN` in the host's environment, then point
-`sendoffapp.com` at it. The association file carries team `QNK434TFA6`.
+sendoffapp.com is served by Netlify (site `sendoffapp`, team `beardednotary`). DNS stays at
+Namecheap: `A @ 75.2.60.5` and `CNAME www sendoffapp.netlify.app`; `www` redirects to the bare
+domain, which must serve `/.well-known/apple-app-site-association` itself (team `QNK434TFA6`).
+Netlify's team-login protection is on for non-production deploys only.
+
+Deploy from the repo root after `npx netlify-cli login` (build settings are in `netlify.toml`):
+
+```bash
+cd web/app && npm run build && cd ../.. && npx netlify-cli deploy --prod --site sendoffapp --dir web/app/dist
+```
+
+A build without Supabase keys is the public landing, `/privacy` and `/support`; Sendoff links
+explain that they start working at launch. Once `supabase/setup.sh` has written
+`web/app/.env.local`, build and deploy again and the links go live. Demo data only appears in
+`npm run dev`, the smoke test (`vite build --mode demo`) and with `?mock` in a URL.
 
 ## App Store Connect
 

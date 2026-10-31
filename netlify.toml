@@ -1,0 +1,9 @@
+# sendoffapp.com on Netlify. Deploys from the command line today (see web/app/README.md);
+# the same settings apply if the site is later connected to the GitHub repo.
+[build]
+  base = "web/app"
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"

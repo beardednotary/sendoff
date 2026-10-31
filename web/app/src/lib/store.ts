@@ -1,4 +1,4 @@
-import type { Contribution, ContributionDraft, MusicTrack, PublicSendoff, RevealSendoff } from './types';
+import { StoreError, type Contribution, type ContributionDraft, type MusicTrack, type PublicSendoff, type RevealSendoff } from './types';
 import { Config } from './config';
 
 export type Progress = (fraction: number, label: string) => void;
@@ -31,9 +31,26 @@ export async function getStore(): Promise<WebStore> {
   if (Config.hasBackend && !forceMock) {
     const { SupabaseStore } = await import('./supabase');
     instance = new SupabaseStore(Config.supabaseUrl, Config.supabaseAnonKey);
-  } else {
+  } else if (Config.demo || forceMock) {
     const { MockStore } = await import('./mock');
     instance = new MockStore();
+  } else {
+    instance = new NotYetStore();
   }
   return instance;
+}
+
+/** A live site before the backend exists: every link explains itself instead of showing demo data. */
+class NotYetStore implements WebStore {
+  readonly isMock = false;
+  private fail(): never {
+    throw new StoreError('not_found', 'Sendoff links start working when the app launches. Check back soon.');
+  }
+  publicSendoff(): Promise<PublicSendoff> { this.fail(); }
+  myContribution(): Promise<Contribution | null> { this.fail(); }
+  submit(): Promise<Contribution> { this.fail(); }
+  reveal(): Promise<RevealSendoff> { this.fail(); }
+  open(): Promise<RevealSendoff> { this.fail(); }
+  revealContributions(): Promise<Contribution[]> { this.fail(); }
+  async track(): Promise<MusicTrack | null> { return null; }
 }

@@ -31,3 +31,6 @@ ios/SendoffClip/SendoffClip.entitlements
 
 # Licensed stock tracks, uploaded by supabase/setup.sh
 supabase/stock-music/
+
+# Netlify CLI state
+.netlify/

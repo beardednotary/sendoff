@@ -35,10 +35,12 @@ npm run e2e          # build, serve, run e2e/smoke.mjs in headless Chromium (nee
 
 ## Deploy
 
-Static host with SPA rewrites (every path to `/index.html`): Vercel, Netlify, Cloudflare Pages.
-Set `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_PUBLIC_ORIGIN` in the host's env.
-Serve `/.well-known/apple-app-site-association` from the same origin for universal links and the
-App Clip (`public/.well-known/` once the domain and team id are final).
+Live on Netlify at sendoffapp.com; the command and DNS are in the root README ("The website").
+`public/_redirects` and `public/_headers` carry the SPA rewrite, the JSON type for
+`/.well-known/apple-app-site-association`, and `noindex` / `no-referrer` on every `/s/` link.
+Newsreader is served from `public/fonts/` (SIL OFL) so no page calls a third party. The keys are
+read at build time from `.env.local` (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`,
+`VITE_PUBLIC_ORIGIN`).
 
 ## How privacy holds on the web
 

@@ -8,7 +8,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "e2e": "vite build && node e2e/smoke.mjs"
+    "e2e": "vite build --mode demo && node e2e/smoke.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

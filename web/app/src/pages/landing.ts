@@ -18,10 +18,8 @@ export async function landingPage(): Promise<void> {
       h('h1', { class: 'display' }, 'Everyone adds privately.', h('br'), 'One person opens it, on the day.'),
       h('p', { class: 'body', style: 'max-width:40ch' },
         'A sealed group keepsake for retirements, graduations and goodbyes. The card passed around the office gets lost; this stays sealed until the day, and only they read it.'),
-      h('div', { class: 'row', style: 'margin-top:8px; flex-wrap:wrap' },
-        h('a', { class: 'btn primary', href: '#', onclick: (e: Event) => e.preventDefault() }, 'Get the iPhone app'),
-      ),
-      h('p', { class: 'caption' }, 'Organizers start one in the app. Everyone else just needs the link.'),
+      h('p', { class: 'ui', style: 'margin-top:8px' }, 'Coming soon to the App Store.'),
+      h('p', { class: 'caption' }, 'Organizers start one in the iPhone app. Everyone else just needs the link.'),
     ),
     store.isMock && h('section', { style: 'margin-top:48px' },
       h('p', { class: 'eyebrow' }, 'Demo, no backend configured'),
@@ -32,5 +30,14 @@ export async function landingPage(): Promise<void> {
         h('a', { href: '/s/jo-moves/qr?t=demo' }, h('span', { class: 'name' }, 'Jo Lindqvist'), h('span', { class: 'caption' }, 'QR card')),
       ),
     ),
+    footer(),
   ));
+}
+
+export function footer(): HTMLElement {
+  return h('footer', { class: 'caption row', style: 'margin-top:48px; gap:18px' },
+    h('a', { href: '/privacy' }, 'Privacy'),
+    h('a', { href: '/support' }, 'Support'),
+    h('span', {}, `\u00A9 ${new Date().getFullYear()} Sendoff`),
+  );
 }

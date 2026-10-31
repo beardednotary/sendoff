@@ -3,6 +3,7 @@ import { contributePage } from './pages/contribute';
 import { openPage } from './pages/open';
 import { qrPage } from './pages/qr';
 import { landingPage } from './pages/landing';
+import { privacyPage, supportPage } from './pages/info';
 import { errorView } from './pages/shared';
 import { mount } from './lib/dom';
 
@@ -11,12 +12,15 @@ import { mount } from './lib/dom';
 //   /s/{slug}?t=token      contribute
 //   /s/{slug}/open?k=key   the reveal
 //   /s/{slug}/qr?t=token   printable QR card
+//   /privacy, /support     what App Store Connect links to
 
 async function route(): Promise<void> {
   const parts = location.pathname.split('/').filter(Boolean);
   const q = new URLSearchParams(location.search);
   try {
     if (parts.length === 0) return await landingPage();
+    if (parts[0] === 'privacy' && parts.length === 1) return privacyPage();
+    if (parts[0] === 'support' && parts.length === 1) return supportPage();
     if (parts[0] === 's' && parts[1]) {
       const slug = decodeURIComponent(parts[1]);
       const tail = parts[2];
