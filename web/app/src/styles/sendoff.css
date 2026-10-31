@@ -221,10 +221,15 @@ button { font: inherit; color: inherit; }
 
 /* Sealed: their photo out of focus, the seal, a hold. */
 #sealed { max-width: none; padding-left: 0; padding-right: 0; color: var(--ink); align-items: center; justify-content: center; text-align: center; }
-#sealed .backdrop { position: absolute; inset: 0; z-index: -1; overflow: hidden; background: var(--paper) center / cover no-repeat; }
+#sealed .backdrop { position: absolute; inset: 0; z-index: -1; overflow: hidden; background: var(--paper) center 25% / cover no-repeat; }
+#sealed .backdrop::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to bottom, transparent 45%, var(--paper) 100%); opacity: 0; transition: opacity .9s ease; }
 #sealed.has-photo { color: #fff; }
-#sealed.has-photo .backdrop { filter: blur(40px) brightness(.5); transform: scale(1.2); transition: filter .7s ease, transform .7s ease; }
+#sealed.has-photo .seal { color: #fff; }
+#sealed.has-photo .backdrop { filter: blur(40px) brightness(.5); transform: scale(1.2); transition: filter .7s ease, transform .7s ease, left .9s cubic-bezier(.4,0,.2,1), right .9s cubic-bezier(.4,0,.2,1), bottom .9s cubic-bezier(.4,0,.2,1); }
 #sealed.has-photo.opening .backdrop { filter: blur(0) brightness(.9); transform: scale(1); }
+/* Then it settles into exactly where the cover's photo sits, and the paper comes up beneath it. */
+#sealed.has-photo.settling .backdrop { filter: blur(0) brightness(1); bottom: 36vh; bottom: 36dvh; left: max(0px, calc(50% - 280px)); right: max(0px, calc(50% - 280px)); }
+#sealed.settling .backdrop::after { opacity: 1; }
 #sealed .inner { display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 520px; padding: 0 28px; flex: 1; justify-content: center; transition: opacity .5s ease; }
 #sealed.opening .inner { opacity: 0; }
 #sealed .seal { --s: 140px; cursor: pointer; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
@@ -246,6 +251,11 @@ button { font: inherit; color: inherit; }
 #cover .name-block { margin-top: auto; display: grid; gap: 8px; }
 #cover .message { margin-top: 14px; }
 #cover .foot { margin-top: 40px; }
+#cover.from-seal.active { animation: none; }
+#cover.from-seal > :not(.photo) { animation: rise .6s cubic-bezier(.2,.8,.2,1) both; }
+#cover.from-seal > .message { animation-delay: .08s; }
+#cover.from-seal > .foot { animation-delay: .16s; }
+@keyframes rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
 
 /* Entries */
 .entry-stage { justify-content: center; padding-top: 104px; }

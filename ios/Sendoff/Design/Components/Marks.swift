@@ -338,14 +338,15 @@ struct VoiceTile: View {
     @Environment(\.theme) private var theme
     var media: Media
     var large = true
-    @State private var playing = false
+    private let audio = ForegroundMedia.shared
 
     var body: some View {
+        let playing = audio.isPlaying(media)
         VStack(alignment: .leading, spacing: large ? 22 : 12) {
-            Waveform(progress: playing ? 0.4 : 0)
+            Waveform(progress: audio.isCurrent(media) ? audio.progress : 0)
                 .frame(height: large ? 96 : 40)
             HStack(spacing: 14) {
-                Button { playing.toggle() } label: {
+                Button { audio.toggle(media) } label: {
                     Image(systemName: playing ? "pause.fill" : "play.fill")
                         .font(.system(size: large ? 20 : 15, weight: .semibold))
                         .foregroundStyle(theme.onSealColor)
@@ -353,6 +354,7 @@ struct VoiceTile: View {
                         .background(theme.sealColor, in: Circle())
                 }
                 .buttonStyle(.pressable)
+                .disabled(media.url == nil && media.localURL == nil)
                 .accessibilityLabel(playing ? "Pause" : "Play voice note")
                 Text(duration)
                     .font(Typeface.body.monospacedDigit())
@@ -366,6 +368,8 @@ struct VoiceTile: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+        // Turning the page, or closing the reveal, ends it.
+        .onDisappear { if audio.isCurrent(media) { audio.stop() } }
     }
 
     private var duration: String {
@@ -403,6 +407,7 @@ struct Waveform: View {
 struct VideoTile: View {
     @Environment(\.theme) private var theme
     var media: Media
+    @State private var playing = false
 
     var body: some View {
         ZStack {
@@ -417,6 +422,17 @@ struct VideoTile: View {
                 .environment(\.colorScheme, .dark)
         }
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .onTapGesture {
+            guard media.url != nil || media.localURL != nil else { return }
+            ForegroundMedia.shared.videoStarted(media)
+            playing = true
+        }
+        .accessibilityAddTraits(.isButton)
+        .accessibilityLabel("Play video")
+        .fullScreenCover(isPresented: $playing, onDismiss: { ForegroundMedia.shared.stop() }) {
+            if let url = media.localURL ?? media.url { VideoScreen(url: url) }
+        }
         .overlay(alignment: .bottomTrailing) {
             if let d = media.durationSeconds {
                 Text(String(format: "%d:%02d", Int(d) / 60, Int(d) % 60))

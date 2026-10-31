@@ -118,6 +118,15 @@ struct SendoffDetailView: View {
                 SecondaryButton(title: "Share", systemImage: "square.and.arrow.up", fill: false) { showShare = true }
             case .open:
                 PrimaryButton(title: "Read it again", systemImage: "book") { showPreview = true }
+                // Opening it early ("Open it now") is when the recipient's link gets sent, so it
+                // stays one tap away; the invite sheet is about gathering entries, which is over.
+                ShareLink(item: s.revealURL) {
+                    PillLabel(title: "Send link", systemImage: "square.and.arrow.up", fill: false)
+                        .foregroundStyle(theme.inkColor)
+                        .background(theme.controlColor, in: Capsule())
+                }
+                .buttonStyle(.pressable)
+                .accessibilityLabel("Send \(s.recipientFirstName) the link")
             }
         }
     }

@@ -66,6 +66,9 @@ struct RevealView: View {
     @State private var trackTitle: String?
     @State private var loaded: [Contribution]?
     @State private var openError: String?
+    /// The cover is arriving from the seal, so its words rise into place under the photo
+    /// instead of turning in like a page.
+    @State private var fromSeal = false
 
     private var theme: SendoffTheme { ThemeCatalog.theme(sendoff.themeID) }
     private var canOpen: Bool { preview || sendoff.isOpen || (sendoff.opensAt.map { $0 <= .now } ?? false) }
@@ -76,10 +79,13 @@ struct RevealView: View {
     var body: some View {
         ZStack {
             Paper()
+            if hasPhoto, stage == .sealed || stage == .waiting || stage == .cover {
+                revealPhoto.transition(.opacity)
+            }
             switch stage {
             case .sealed: sealed
             case .waiting: waiting
-            case .cover: cover.transition(pageTransition)
+            case .cover: cover.transition(fromSeal ? .opacity.combined(with: .offset(y: 24)) : pageTransition)
             case .entry(let i): entry(i).transition(pageTransition)
             case .kept: kept.transition(.opacity)
             }
@@ -87,7 +93,16 @@ struct RevealView: View {
         .overlay(alignment: .top) { chrome }
         .sendoffTheme(theme)
         .statusBarHidden()
-        .onDisappear { player.stop() }
+        .onAppear {
+            ForegroundMedia.shared.duck = { [player] in player.duck() }
+            ForegroundMedia.shared.unduck = { [player] in player.unduck() }
+        }
+        .onDisappear {
+            ForegroundMedia.shared.stop()
+            ForegroundMedia.shared.duck = nil
+            ForegroundMedia.shared.unduck = nil
+            player.stop()
+        }
         .sensoryFeedback(.impact(weight: .heavy), trigger: opened)
         .task { trackTitle = try? await store.tracks().first { $0.id == sendoff.musicTrackID }?.title }
     }
@@ -132,12 +147,6 @@ struct RevealView: View {
     /// closed; at the end the blur lifts and the cover comes up.
     private var sealed: some View {
         ZStack {
-            if hasPhoto {
-                CoverImage(sendoff: sendoff)
-                    .blur(radius: opened ? 0 : 40, opaque: true)
-                    .ignoresSafeArea()
-                Color.black.opacity(opened ? 0.1 : 0.5).ignoresSafeArea()
-            }
             VStack(spacing: 0) {
                 Spacer()
                 Seal(initial: sendoff.recipientInitial, size: 140, progress: hold, ink: ink)
@@ -181,12 +190,28 @@ struct RevealView: View {
     /// Text on the sealed screen: white over a photo, the theme's ink without one.
     private var ink: Color { hasPhoto ? .white : theme.inkColor }
 
+    /// Their photo, one view from the seal to the cover: out of focus behind the seal, sharp
+    /// once it breaks, then settling into the top of the cover as the paper comes up beneath
+    /// it. Swapping a full-screen photo for the cover's own cut from a dark photo to bright paper.
+    private var revealPhoto: some View {
+        GeometryReader { g in
+            let settled = stage == .cover
+            ZStack {
+                CoverImage(sendoff: sendoff)
+                    .blur(radius: opened ? 0 : 40, opaque: true)
+                Color.black.opacity(settled ? 0 : opened ? 0.1 : stage == .waiting ? 0.55 : 0.5)
+                LinearGradient(stops: [.init(color: theme.paperColor.opacity(0), location: 0.45), .init(color: theme.paperColor, location: 1)],
+                               startPoint: .top, endPoint: .bottom)
+                    .opacity(settled ? 1 : 0)
+            }
+            .frame(width: g.size.width, height: settled ? g.size.height * 0.64 : g.size.height)
+            .clipped()
+        }
+        .ignoresSafeArea()
+    }
+
     private var waiting: some View {
         ZStack {
-            if hasPhoto {
-                CoverImage(sendoff: sendoff).blur(radius: 40, opaque: true).ignoresSafeArea()
-                Color.black.opacity(0.55).ignoresSafeArea()
-            }
             VStack(spacing: 0) {
                 Spacer()
                 Seal(initial: sendoff.recipientInitial, size: 110, ink: ink)
@@ -208,14 +233,8 @@ struct RevealView: View {
     private var cover: some View {
         GeometryReader { g in
             ZStack(alignment: .top) {
-                if hasPhoto {
-                    CoverImage(sendoff: sendoff)
-                        .frame(width: g.size.width, height: g.size.height * 0.64)
-                        .clipped()
-                    LinearGradient(stops: [.init(color: theme.paperColor.opacity(0), location: 0.45), .init(color: theme.paperColor, location: 1)],
-                                   startPoint: .top, endPoint: .bottom)
-                        .frame(height: g.size.height * 0.64)
-                } else {
+                // With a photo, revealPhoto (behind every stage) is the cover's photo.
+                if !hasPhoto {
                     Seal(initial: sendoff.recipientInitial, size: 120)
                         .padding(.top, g.size.height * 0.2)
                 }
@@ -325,11 +344,14 @@ struct RevealView: View {
                 }
             }
             try? await pause
-            withAnimation(reduceMotion ? Motion.fade : Motion.lift) { stage = .cover }
+            fromSeal = true
+            // Slow and even: the photo settles into the cover's place as the paper comes up.
+            withAnimation(reduceMotion ? Motion.fade : .easeInOut(duration: 0.9)) { stage = .cover }
         }
     }
 
     private func advance() {
+        fromSeal = false
         switch stage {
         case .cover: withAnimation(turnAnimation) { stage = entries.isEmpty ? .kept : .entry(0) }
         case .entry(let i): withAnimation(turnAnimation) { stage = i + 1 < entries.count ? .entry(i + 1) : .kept }

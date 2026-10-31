@@ -14,6 +14,8 @@ type StageID = 'sealed' | 'cover' | 'entries' | 'kept';
 
 /** How long the seal is held before it opens (Motion.holdToOpen on iOS). */
 const HOLD_MS = 1000;
+/** How long their photo takes to settle from full screen into the cover's place. */
+const SETTLE_MS = 900;
 
 export async function openPage(slug: string, key: string | null): Promise<void> {
   mount(loadingView());
@@ -108,8 +110,10 @@ class Reveal {
     return (this.root.querySelector('.stage.active')?.id as StageID | undefined) ?? 'sealed';
   }
 
-  private go(id: StageID): void {
+  private go(id: StageID, fromSeal = false): void {
     for (const el of Object.values(this.stages)) { el.classList.remove('active'); void el.offsetWidth; }
+    // Straight from the seal the photo is already in place; only the words come up.
+    this.stages.cover.classList.toggle('from-seal', id === 'cover' && fromSeal);
     this.stages[id].classList.add('active');
     window.scrollTo(0, 0);
     if (id !== 'entries') this.fg.stopAll();
@@ -156,6 +160,7 @@ class Reveal {
       if (opening) return;
       if (!this.isDue) { refuse(); return; }
       opening = true;
+      const started = performance.now();
       mark.classList.add('holding');
       section.classList.add('opening');
       navigator.vibrate?.(30);
@@ -166,7 +171,14 @@ class Reveal {
         this.s = await store.open(this.slug, this.key);
         this.entries = await store.revealContributions(this.slug, this.key);
         this.refreshCounts();
-        window.setTimeout(() => this.go('cover'), 700);
+        // Let the blur lift, then settle their photo into the cover's place so the page never
+        // cuts from the photo to bright paper.
+        await pause(700 - (performance.now() - started));
+        if (photo && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+          section.classList.add('settling');
+          await pause(SETTLE_MS);
+        }
+        this.go('cover', true);
       } catch (e) {
         opening = false;
         mark.classList.remove('holding');
@@ -440,4 +452,8 @@ function lightbox(url: string): void {
   document.body.appendChild(box);
   const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') { box.remove(); document.removeEventListener('keydown', esc); } };
   document.addEventListener('keydown', esc);
+}
+
+function pause(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, Math.max(0, ms)));
 }

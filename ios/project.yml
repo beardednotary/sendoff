@@ -133,6 +133,8 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.dahvio.sendoff.tests
+        # The bundle is signed now that the team comes from Local.xcconfig, and signing needs a plist.
+        GENERATE_INFOPLIST_FILE: YES
 
 schemes:
   Sendoff:
