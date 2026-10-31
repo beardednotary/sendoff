@@ -36,6 +36,11 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.dahvio.sendoff
+        # XcodeGen writes Info.plist from `info:` below; without this Xcode ignores every
+        # INFOPLIST_KEY_ setting (launch screen, permission text, orientation, name).
+        GENERATE_INFOPLIST_FILE: YES
+        # iPhone only: there are no iPad layouts, and iPad would need every orientation.
+        TARGETED_DEVICE_FAMILY: "1"
         INFOPLIST_KEY_CFBundleDisplayName: Sendoff
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
@@ -90,6 +95,8 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.dahvio.sendoff.Clip
+        GENERATE_INFOPLIST_FILE: YES
+        TARGETED_DEVICE_FAMILY: "1"
         INFOPLIST_KEY_CFBundleDisplayName: Sendoff
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
