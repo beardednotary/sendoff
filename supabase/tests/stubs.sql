@@ -1,7 +1,9 @@
 -- Minimal stand-ins for the Supabase-managed schemas, so the migrations run on plain Postgres.
 -- Only what the migrations and tests touch. Never run this against a Supabase project.
 
-create extension if not exists "pgcrypto";
+-- As on Supabase: extensions live in their own schema, outside the search path.
+create schema if not exists extensions;
+create extension if not exists pgcrypto with schema extensions;
 
 do $$ begin
   if not exists (select 1 from pg_roles where rolname = 'anon') then create role anon nologin; end if;

@@ -162,9 +162,9 @@ class Reveal {
       void this.bed.play();
       try {
         const store = await getStore();
-        const [opened, entries] = await Promise.all([store.open(this.slug, this.key), store.revealContributions(this.slug, this.key)]);
-        this.s = opened;
-        this.entries = entries;
+        // In order: the entries are only readable once the server has flipped it open.
+        this.s = await store.open(this.slug, this.key);
+        this.entries = await store.revealContributions(this.slug, this.key);
         this.refreshCounts();
         window.setTimeout(() => this.go('cover'), 700);
       } catch (e) {

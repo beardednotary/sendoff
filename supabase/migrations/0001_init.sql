@@ -1,7 +1,10 @@
 -- Sendoff — initial schema
 -- Postgres / Supabase. Run with `supabase db push` or paste into the SQL editor.
 
-create extension if not exists "pgcrypto";
+-- Supabase keeps extensions in the `extensions` schema, outside the search path, so pgcrypto's
+-- functions are always called as extensions.*.
+create schema if not exists extensions;
+create extension if not exists pgcrypto with schema extensions;
 
 -- ---------------------------------------------------------------------------
 -- Enums
@@ -103,8 +106,8 @@ create table sendoffs (
   opens_at timestamptz,                               -- recipient can open
   opened_at timestamptz,
 
-  contribute_token text not null default encode(gen_random_bytes(16), 'hex'),  -- in the shared link
-  recipient_key text not null default encode(gen_random_bytes(24), 'hex'),     -- in the recipient's reveal link / QR
+  contribute_token text not null default encode(extensions.gen_random_bytes(16), 'hex'),  -- in the shared link
+  recipient_key text not null default encode(extensions.gen_random_bytes(24), 'hex'),     -- in the recipient's reveal link / QR
   plan plan not null default 'free',
   contributor_limit int not null default 100,
   contributor_goal int default 25,                    -- organizer's own target, not a cap

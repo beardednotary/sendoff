@@ -25,12 +25,25 @@ type MediaRow = {
 
 const LIMITS = { videoSeconds: 60, voiceSeconds: 120 };
 
+/** The gateway has already checked the JWT's signature (verify_jwt = true for this function in
+ *  supabase/config.toml), so its claims can be read as they are. Only the service role key the
+ *  trigger reads from Vault carries role "service_role". Comparing the raw key text to
+ *  SUPABASE_SERVICE_ROLE_KEY is not enough: the function's environment may hold it in another form. */
+function isServiceRole(header: string | null): boolean {
+  const payload = header?.match(/^Bearer ([^.]+)\.([^.]+)\.[^.]+$/)?.[2];
+  if (!payload) return false;
+  try {
+    return JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/'))).role === 'service_role';
+  } catch {
+    return false;
+  }
+}
+
 const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 
 Deno.serve(async (req) => {
-  // Only the database webhook (service role) may call this.
-  const auth = req.headers.get('authorization') ?? '';
-  if (auth !== `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`) return new Response('forbidden', { status: 403 });
+  // Only the database trigger may call this.
+  if (!isServiceRole(req.headers.get('authorization'))) return new Response('forbidden', { status: 403 });
 
   const payload = await req.json() as { type: string; record: MediaRow };
   if (payload.type !== 'INSERT') return new Response('ignored');

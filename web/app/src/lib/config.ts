@@ -14,6 +14,8 @@ export const Config = {
   /** The in-memory demo runs in `npm run dev`, in `vite build --mode demo` (the smoke test) and
    *  anywhere with `?mock` in the URL. A live build without a backend shows no demo data. */
   demo: env.DEV || env.MODE === 'demo',
+  /** The smoke test's build always runs on demo data, even when .env.local holds real keys. */
+  demoOnly: env.MODE === 'demo',
 };
 
 export function contributeLink(slug: string, token: string | null): string {

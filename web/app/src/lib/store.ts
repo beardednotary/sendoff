@@ -27,7 +27,7 @@ let instance: WebStore | undefined;
 
 export async function getStore(): Promise<WebStore> {
   if (instance) return instance;
-  const forceMock = new URLSearchParams(location.search).has('mock');
+  const forceMock = Config.demoOnly || new URLSearchParams(location.search).has('mock');
   if (Config.hasBackend && !forceMock) {
     const { SupabaseStore } = await import('./supabase');
     instance = new SupabaseStore(Config.supabaseUrl, Config.supabaseAnonKey);
