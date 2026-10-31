@@ -28,6 +28,7 @@ final class SupabaseStore: SendoffStore {
 
     private(set) var currentUserID: UUID?
     private(set) var currentUserName: String = ""
+    private(set) var isSignedIn = false
 
     init(client: SupabaseClient) {
         self.client = client
@@ -45,8 +46,39 @@ final class SupabaseStore: SendoffStore {
     private func refreshSession() async {
         if let session = try? await client.auth.session {
             currentUserID = session.user.id
-            currentUserName = (session.user.userMetadata["display_name"]?.stringValue) ?? session.user.email ?? ""
+            currentUserName = (session.user.userMetadata["display_name"]?.stringValue) ?? ""
+            isSignedIn = !session.user.isAnonymous
+        } else {
+            currentUserID = nil
+            currentUserName = ""
+            isSignedIn = false
         }
+    }
+
+    // MARK: Organizer account
+
+    func signInWithApple(idToken: String, nonce: String, name: String?) async throws -> Bool {
+        try await client.auth.signInWithIdToken(credentials: OpenIDConnectCredentials(provider: .apple, idToken: idToken, nonce: nonce))
+        await refreshSession()
+        if let name, !name.trimmingCharacters(in: .whitespaces).isEmpty {
+            try await setDisplayName(name)
+        }
+        return !currentUserName.isEmpty
+    }
+
+    /// Apple shares the name once. It goes into the auth metadata (read back on every launch) and
+    /// the profile row, which is what contributors and the recipient see as the organizer.
+    func setDisplayName(_ name: String) async throws {
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let uid = currentUserID, !name.isEmpty else { return }
+        try await client.auth.update(user: UserAttributes(data: ["display_name": .string(name)]))
+        try await client.from("profiles").update(["display_name": name]).eq("id", value: uid).execute()
+        currentUserName = name
+    }
+
+    func signOut() async throws {
+        try await client.auth.signOut()
+        await refreshSession()
     }
 
     /// Contributors and recipients get an anonymous session so RLS has a `auth.uid()` to work with.
@@ -142,7 +174,8 @@ final class SupabaseStore: SendoffStore {
     // MARK: Organizer
 
     func mySendoffs() async throws -> [Sendoff] {
-        guard let uid = currentUserID else { return [] }
+        if currentUserID == nil { await refreshSession() }
+        guard isSignedIn, let uid = currentUserID else { return [] }
         let rows: [SendoffRow] = try await client.from("sendoffs")
             .select().eq("organizer_id", value: uid).order("created_at", ascending: false)
             .execute().value
@@ -180,7 +213,7 @@ final class SupabaseStore: SendoffStore {
     }
 
     func create(_ d: SendoffDraft) async throws -> Sendoff {
-        guard let uid = currentUserID else { throw StoreError.notAllowed }
+        guard isSignedIn, let uid = currentUserID else { throw StoreError.notAllowed }
         struct Insert: Encodable {
             var slug: String; var organizer_id: UUID; var occasion: Occasion; var recipient_name: String
             var from_line: String?; var cover_message: String?; var theme_id: ThemeID; var music_track_id: String?

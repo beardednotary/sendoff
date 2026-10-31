@@ -14,7 +14,6 @@ configFiles:
 settings:
   base:
     SWIFT_VERSION: "5.10"
-    DEVELOPMENT_TEAM: ""           # set in Xcode > Signing, or in Config/Local.xcconfig
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: "1"
     SWIFT_STRICT_CONCURRENCY: minimal
@@ -53,6 +52,9 @@ targets:
         com.apple.developer.associated-domains:
           - applinks:$(PUBLIC_HOST)
           - appclips:$(PUBLIC_HOST)
+        # Organizers sign in with Apple; contributors and recipients never sign in.
+        com.apple.developer.applesignin:
+          - Default
     info:
       path: Sendoff/Info.plist
       properties:

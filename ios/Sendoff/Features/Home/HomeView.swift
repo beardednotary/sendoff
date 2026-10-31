@@ -7,6 +7,8 @@ struct HomeView: View {
     @State private var sendoffs: [Sendoff] = []
     @State private var loading = true
     @State private var showCreate = false
+    @State private var showSignIn = false
+    @State private var createAfterSignIn = false
     @State private var path = NavigationPath()
 
     var body: some View {
@@ -48,6 +50,13 @@ struct HomeView: View {
                 SendoffDetailView(sendoffID: s.id)
             }
             .toolbar(.hidden, for: .navigationBar)
+            .sheet(isPresented: $showSignIn, onDismiss: {
+                if createAfterSignIn, store.isSignedIn { showCreate = true }
+                createAfterSignIn = false
+                Task { await load() }
+            }) {
+                SignInView {}.appTheme()
+            }
             .sheet(isPresented: $showCreate, onDismiss: { Task { await load() } }) {
                 CreateFlow { created in
                     showCreate = false
@@ -59,6 +68,11 @@ struct HomeView: View {
         .tint(theme.inkColor)
     }
 
+    /// Creating needs an organizer account; signing in comes first, then the create flow opens.
+    private func start() {
+        if store.isSignedIn { showCreate = true } else { createAfterSignIn = true; showSignIn = true }
+    }
+
     private var inProgress: [Sendoff] { sendoffs.filter { $0.state != .open } }
     private var opened: [Sendoff] { sendoffs.filter { $0.state == .open } }
 
@@ -67,7 +81,8 @@ struct HomeView: View {
             HStack {
                 PathMark(size: 26, onTile: false)
                 Spacer()
-                CircleButton(systemImage: "plus", label: "Start a Sendoff") { showCreate = true }
+                if store.isSignedIn { account }
+                CircleButton(systemImage: "plus", label: "Start a Sendoff") { start() }
             }
             .frame(height: 52)
             Text("Sendoffs")
@@ -101,11 +116,32 @@ struct HomeView: View {
             Text("The card passed around the office gets lost, and half the team never sees it. A Sendoff is sealed until the day, and only they read it.")
                 .font(Typeface.body)
                 .foregroundStyle(theme.mutedInkColor)
-            PrimaryButton(title: "Start a Sendoff", systemImage: "plus", fill: false) { showCreate = true }
+            PrimaryButton(title: "Start a Sendoff", systemImage: "plus", fill: false) { start() }
                 .padding(.top, 8)
+            if !store.isSignedIn {
+                Button("Already started one? Sign in") { showSignIn = true }
+                    .font(Typeface.caption).foregroundStyle(theme.mutedInkColor)
+            }
         }
         .padding(.horizontal, 20)
         .padding(.top, 36)
+    }
+
+    private var account: some View {
+        Menu {
+            Section(store.currentUserName.isEmpty ? "Signed in" : "Signed in as \(store.currentUserName)") {
+                Button(role: .destructive) {
+                    Task { try? await store.signOut(); sendoffs = []; await load() }
+                } label: { Label("Sign out", systemImage: "rectangle.portrait.and.arrow.right") }
+            }
+        } label: {
+            Image(systemName: "person")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(theme.inkColor)
+                .frame(width: 44, height: 44)
+                .background(theme.controlColor, in: Circle())
+        }
+        .accessibilityLabel("Account")
     }
 
     private func load() async {

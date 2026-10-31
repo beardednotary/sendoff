@@ -21,3 +21,11 @@ verify_jwt = false
 # Called only by the media trigger (0004_media_webhook.sql) with the service role key.
 [functions.process-media]
 verify_jwt = true
+
+# Organizers sign in with Apple in the iPhone app. The native flow sends Apple's ID token
+# straight to Supabase, so only the app's bundle ID is needed; no secret (that is for the web
+# OAuth flow, which Sendoff does not use).
+[auth.external.apple]
+enabled = true
+client_id = "com.dahvio.sendoff"
+secret = ""

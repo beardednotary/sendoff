@@ -9,6 +9,16 @@ protocol SendoffStore: AnyObject, Observable {
     var currentUserID: UUID? { get }
     var currentUserName: String { get }
 
+    // Organizer account. Contributors and recipients never sign in; organizers use Apple.
+    /// True when an organizer is signed in, as opposed to no session or an anonymous one.
+    var isSignedIn: Bool { get }
+    /// Signs an organizer in with Apple's ID token. `name` is what Apple shares, on the first
+    /// sign-in only. Returns false when the account still has no name people would recognise.
+    func signInWithApple(idToken: String, nonce: String, name: String?) async throws -> Bool
+    /// The name contributors see: "Only Jo and Dan will see this".
+    func setDisplayName(_ name: String) async throws
+    func signOut() async throws
+
     // Organizer
     func mySendoffs() async throws -> [Sendoff]
     func create(_ draft: SendoffDraft) async throws -> Sendoff
@@ -98,8 +108,9 @@ enum StoreError: LocalizedError {
 /// In-memory store seeded with a believable Sendoff. Drives previews, tests and the offline demo.
 @Observable
 final class MockStore: SendoffStore {
-    let currentUserID: UUID? = MockStore.me
-    let currentUserName = "Dan Okafor"
+    private(set) var currentUserID: UUID? = MockStore.me
+    private(set) var currentUserName = "Dan Okafor"
+    var isSignedIn: Bool { currentUserID != nil }
 
     private(set) var sendoffs: [Sendoff]
     private(set) var contributionsByID: [UUID: [Contribution]]
@@ -122,6 +133,17 @@ final class MockStore: SendoffStore {
     func mySendoffs() async throws -> [Sendoff] {
         sendoffs.filter { $0.organizerID == currentUserID }.sorted { $0.createdAt > $1.createdAt }
     }
+
+    // The demo starts signed in as Dan, so every screen is reachable without an Apple Account.
+    func signInWithApple(idToken: String, nonce: String, name: String?) async throws -> Bool {
+        currentUserID = MockStore.me
+        if let name, !name.isEmpty { currentUserName = name }
+        return !currentUserName.isEmpty
+    }
+
+    func setDisplayName(_ name: String) async throws { currentUserName = name }
+
+    func signOut() async throws { currentUserID = nil }
 
     func create(_ d: SendoffDraft) async throws -> Sendoff {
         let s = Sendoff(
