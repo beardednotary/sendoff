@@ -24,9 +24,13 @@ protocol SendoffStore: AnyObject, Observable {
     func myContribution(for sendoffID: UUID) async throws -> Contribution?
     func submit(_ draft: ContributionDraft, to sendoffID: UUID) async throws -> Contribution
 
-    // Recipient
-    func revealContributions(for sendoffID: UUID) async throws -> [Contribution]
-    func markOpened(_ sendoffID: UUID) async throws
+    // Recipient, from their link: slug + recipient key, no account
+    /// The Sendoff as the recipient may see it, sealed or open, with the cover signed.
+    func reveal(slug: String, key: String) async throws -> Sendoff
+    /// Breaks the seal. Returns the Sendoff once it is open; throws `.sealed` when it is not due.
+    func open(slug: String, key: String) async throws -> Sendoff
+    /// The approved entries with playable media. Empty until the Sendoff is open.
+    func revealContributions(slug: String, key: String) async throws -> [Contribution]
 
     // Catalog
     func tracks() async throws -> [MusicTrack]
@@ -74,7 +78,7 @@ struct ContributionDraft {
 }
 
 enum StoreError: LocalizedError {
-    case notFound, notAllowed, closed, full, noCredit, network(String)
+    case notFound, notAllowed, closed, full, noCredit, sealed, network(String)
 
     var errorDescription: String? {
         switch self {
@@ -83,6 +87,7 @@ enum StoreError: LocalizedError {
         case .closed: "This Sendoff is no longer collecting."
         case .full: "This Sendoff is full. The organizer can make room."
         case .noCredit: "That credit has already been used."
+        case .sealed: "It's sealed. Not yet."
         case .network(let s): s
         }
     }
@@ -198,12 +203,28 @@ final class MockStore: SendoffStore {
         return c
     }
 
-    func revealContributions(for sendoffID: UUID) async throws -> [Contribution] {
-        try await contributions(for: sendoffID).filter { $0.status == .approved }
+    // Any key opens a mock Sendoff, as on the web.
+    func reveal(slug: String, key: String) async throws -> Sendoff {
+        var s = try await sendoff(slug: slug)
+        s.contributorCount = (contributionsByID[s.id] ?? []).filter { $0.status != .hidden }.count
+        return s
     }
 
-    func markOpened(_ sendoffID: UUID) async throws {
-        try await setState(sendoffID, .open)
+    func open(slug: String, key: String) async throws -> Sendoff {
+        var s = try await reveal(slug: slug, key: key)
+        let due = s.isOpen || (s.reveal == .onDate && (s.opensAt.map { $0 <= .now } ?? false))
+        guard due else { throw StoreError.sealed }
+        if !s.isOpen {
+            try await setState(s.id, .open)
+            s.state = .open
+        }
+        return s
+    }
+
+    func revealContributions(slug: String, key: String) async throws -> [Contribution] {
+        let s = try await sendoff(slug: slug)
+        guard s.isOpen else { return [] }
+        return try await contributions(for: s.id).filter { $0.status == .approved }
     }
 
     func tracks() async throws -> [MusicTrack] { MockStore.sampleTracks }

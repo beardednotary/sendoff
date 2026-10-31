@@ -1,31 +1,45 @@
 import SwiftUI
 import AVFoundation
 
-/// Loads a Sendoff from a recipient link and shows the reveal.
+/// Loads a Sendoff from the recipient's link (slug + key) and shows the reveal. The entries
+/// arrive only when the seal is broken and the server agrees it is due.
 struct RevealLoader: View {
     @Environment(\.store) private var store
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.theme) private var theme
     var slug: String
     @State private var sendoff: Sendoff?
-    @State private var contributions: [Contribution] = []
     @State private var error: String?
+
+    private var key: String { AppRouter.recipientKey(for: slug) ?? "" }
 
     var body: some View {
         Group {
             if let s = sendoff {
-                RevealView(sendoff: s, contributions: contributions, preview: false)
+                RevealView(sendoff: s, contributions: [], preview: false) {
+                    let opened = try await store.open(slug: slug, key: key)
+                    return (opened, try await store.revealContributions(slug: slug, key: key))
+                }
             } else if let error {
-                VStack(spacing: 12) { Text(error).font(Typeface.entry); Button("Close") { dismiss() } }.padding()
+                ZStack {
+                    Paper()
+                    VStack(alignment: .leading, spacing: 12) {
+                        Spacer()
+                        Text(error).font(Typeface.display(40)).displayTracking(40).foregroundStyle(theme.inkColor)
+                        Text("The Sendoff only opens with the link or QR code you were given. Ask the person who made it to send it again.")
+                            .font(Typeface.body).foregroundStyle(theme.mutedInkColor)
+                        Spacer()
+                        SecondaryButton(title: "Close") { dismiss() }
+                    }
+                    .padding(20)
+                }
             } else {
-                ProgressView()
+                ZStack { Paper(); ProgressView().tint(theme.faintInkColor) }
             }
         }
         .task {
-            do {
-                let s = try await store.sendoff(slug: slug)
-                contributions = try await store.revealContributions(for: s.id)
-                sendoff = s
-            } catch { self.error = error.localizedDescription }
+            do { sendoff = try await store.reveal(slug: slug, key: key) }
+            catch { self.error = error.localizedDescription }
         }
     }
 }
@@ -38,6 +52,9 @@ struct RevealView: View {
     var sendoff: Sendoff
     var contributions: [Contribution]
     var preview: Bool
+    /// Breaks the seal on the server and returns the entries. Nil for the organizer's preview,
+    /// which already holds them.
+    var open: (() async throws -> (Sendoff, [Contribution]))? = nil
 
     enum Stage: Equatable { case sealed, waiting, cover, entry(Int), kept }
     @State private var stage: Stage = .sealed
@@ -47,10 +64,14 @@ struct RevealView: View {
     @State private var player = MusicPlayer()
     @State private var dragX: CGFloat = 0
     @State private var trackTitle: String?
+    @State private var loaded: [Contribution]?
+    @State private var openError: String?
 
     private var theme: SendoffTheme { ThemeCatalog.theme(sendoff.themeID) }
     private var canOpen: Bool { preview || sendoff.isOpen || (sendoff.opensAt.map { $0 <= .now } ?? false) }
     private var hasPhoto: Bool { sendoff.recipientPhotoURL != nil }
+    private var entries: [Contribution] { loaded ?? contributions }
+    private var peopleCount: Int { loaded?.count ?? sendoff.contributorCount ?? contributions.count }
 
     var body: some View {
         ZStack {
@@ -77,7 +98,7 @@ struct RevealView: View {
         VStack(spacing: 10) {
             if case .entry(let i) = stage {
                 HStack(spacing: 4) {
-                    ForEach(0..<contributions.count, id: \.self) { n in
+                    ForEach(0..<entries.count, id: \.self) { n in
                         Capsule().fill(n <= i ? theme.inkColor : theme.controlColor).frame(height: 2)
                     }
                 }
@@ -86,7 +107,7 @@ struct RevealView: View {
             HStack {
                 if preview { Eyebrow(text: "Preview", tint: onImage ? .white.opacity(0.85) : nil) }
                 else if case .entry(let i) = stage {
-                    Text("\(i + 1) of \(contributions.count)").font(Typeface.caption).foregroundStyle(theme.faintInkColor)
+                    Text("\(i + 1) of \(entries.count)").font(Typeface.caption).foregroundStyle(theme.faintInkColor)
                 }
                 Spacer()
                 CircleButton(systemImage: "xmark", label: "Close", onImage: onImage) { player.stop(); dismiss() }
@@ -141,12 +162,12 @@ struct RevealView: View {
                     .foregroundStyle(ink)
                     .multilineTextAlignment(.center)
                     .padding(.top, 40)
-                Text([sendoff.fromLine, contributions.isEmpty ? nil : "\(contributions.count) people"].compactMap { $0 }.joined(separator: " · "))
+                Text([sendoff.fromLine, peopleCount == 0 ? nil : "\(peopleCount) people"].compactMap { $0 }.joined(separator: " · "))
                     .font(Typeface.body).foregroundStyle(ink.opacity(0.8))
                     .multilineTextAlignment(.center)
                     .padding(.top, 10)
                 Spacer()
-                Text(holding ? "Keep holding" : canOpen ? "Press and hold the seal" : sendoff.statusLine)
+                Text(openError ?? (holding ? "Keep holding" : canOpen ? "Press and hold the seal" : sendoff.statusLine))
                     .font(Typeface.body).foregroundStyle(ink.opacity(0.85))
                     .contentTransition(.opacity)
                     .animation(Motion.fade, value: holding)
@@ -173,7 +194,7 @@ struct RevealView: View {
                     .font(Typeface.display(40)).displayTracking(40).foregroundStyle(ink)
                     .padding(.top, 32)
                 if let d = sendoff.opensAt {
-                    Text("This opens \(d.formatted(.dateTime.weekday(.wide).month(.wide).day())). \(contributions.count) people are waiting for you.")
+                    Text("This opens \(d.formatted(.dateTime.weekday(.wide).month(.wide).day())). \(peopleCount) people are waiting for you.")
                         .font(Typeface.body).foregroundStyle(ink.opacity(0.8))
                         .multilineTextAlignment(.center)
                         .padding(.top, 12)
@@ -221,7 +242,7 @@ struct RevealView: View {
                         }
                         Spacer()
                         Button { advance() } label: {
-                            PillLabel(title: contributions.isEmpty ? "Finish" : "Begin", systemImage: "arrow.right", fill: false, small: true, iconTrailing: true)
+                            PillLabel(title: entries.isEmpty ? "Finish" : "Begin", systemImage: "arrow.right", fill: false, small: true, iconTrailing: true)
                                 .foregroundStyle(theme.inkColor)
                                 .background(theme.controlColor, in: Capsule())
                         }
@@ -241,7 +262,7 @@ struct RevealView: View {
     private func entry(_ i: Int) -> some View {
         GeometryReader { g in
             ScrollView {
-                EntryPage(contribution: contributions[i])
+                EntryPage(contribution: entries[i])
                     .offset(x: dragX * 0.25)
                     .opacity(1 - min(0.4, abs(dragX) / 600))
                     .padding(.horizontal, 20)
@@ -254,7 +275,7 @@ struct RevealView: View {
         .contentShape(Rectangle())
         .simultaneousGesture(pageGesture)
         .onTapGesture { advance() }
-        .onAppear { if contributions[i].voice != nil || contributions[i].video != nil { player.duck() } else { player.unduck() } }
+        .onAppear { if entries[i].voice != nil || entries[i].video != nil { player.duck() } else { player.unduck() } }
     }
 
     private var kept: some View {
@@ -264,7 +285,7 @@ struct RevealView: View {
             Text("Kept for you.")
                 .font(Typeface.display(48)).displayTracking(48).foregroundStyle(theme.inkColor)
                 .padding(.top, 28)
-            Text("\(contributions.count) people wrote to you. This stays here as long as you want it.")
+            Text("\(peopleCount) people wrote to you. This stays here as long as you want it.")
                 .font(Typeface.body).foregroundStyle(theme.mutedInkColor)
                 .padding(.top, 12)
             Spacer()
@@ -284,19 +305,34 @@ struct RevealView: View {
     private func breakSeal() {
         guard canOpen, !opened else { return }
         holding = false
+        openError = nil
         withAnimation(reduceMotion ? Motion.fade : .easeOut(duration: 0.7)) { opened = true }
-        if !preview, !sendoff.isOpen { Task { try? await store.markOpened(sendoff.id) } }
         player.play(trackID: sendoff.musicTrackID)
         Task {
-            try? await Task.sleep(for: .milliseconds(reduceMotion ? 300 : 650))
+            async let pause: Void = Task.sleep(for: .milliseconds(reduceMotion ? 300 : 650))
+            if let open {
+                do {
+                    loaded = try await open().1
+                } catch {
+                    player.stop()
+                    withAnimation(Motion.settle) { opened = false; hold = 0 }
+                    if case StoreError.sealed = error {
+                        withAnimation(Motion.fade) { stage = .waiting }
+                    } else {
+                        openError = "That didn't go through. Check your connection and hold it again."
+                    }
+                    return
+                }
+            }
+            try? await pause
             withAnimation(reduceMotion ? Motion.fade : Motion.lift) { stage = .cover }
         }
     }
 
     private func advance() {
         switch stage {
-        case .cover: withAnimation(turnAnimation) { stage = contributions.isEmpty ? .kept : .entry(0) }
-        case .entry(let i): withAnimation(turnAnimation) { stage = i + 1 < contributions.count ? .entry(i + 1) : .kept }
+        case .cover: withAnimation(turnAnimation) { stage = entries.isEmpty ? .kept : .entry(0) }
+        case .entry(let i): withAnimation(turnAnimation) { stage = i + 1 < entries.count ? .entry(i + 1) : .kept }
         default: break
         }
     }
@@ -304,7 +340,7 @@ struct RevealView: View {
     private func retreat() {
         switch stage {
         case .entry(let i): withAnimation(turnAnimation) { stage = i == 0 ? .cover : .entry(i - 1) }
-        case .kept: withAnimation(turnAnimation) { stage = contributions.isEmpty ? .cover : .entry(contributions.count - 1) }
+        case .kept: withAnimation(turnAnimation) { stage = entries.isEmpty ? .cover : .entry(entries.count - 1) }
         default: break
         }
     }

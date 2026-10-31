@@ -257,6 +257,8 @@ struct Sendoff: Identifiable, Codable, Hashable {
     var contributeToken: String? = nil
     /// In the recipient's link as `?k=`. Long and random so it cannot be derived from the slug.
     var recipientKey: String? = nil
+    /// Entries that are not hidden, as the recipient's link reports it before the seal is broken.
+    var contributorCount: Int? = nil
 
     /// `https://{host}/s/{slug}?t={token}`: the link everyone who contributes receives.
     var shareURL: URL {

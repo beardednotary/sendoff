@@ -78,8 +78,36 @@ final class ModelTests: XCTestCase {
         cd.body = "Hello"
         let c = try await store.submit(cd, to: s.id)
         XCTAssertEqual(c.status, .pending)
-        let reveal = try await store.revealContributions(for: s.id)
+        try await store.setState(s.id, .open)
+        let reveal = try await store.revealContributions(slug: s.slug, key: "")
         XCTAssertTrue(reveal.isEmpty, "pending entries must never reach the recipient")
+    }
+
+    /// The recipient's link breaks the seal only when it is due, and entries arrive only after.
+    func testMockStoreOpensOnlyWhenDue() async throws {
+        let store = MockStore()
+        var draft = SendoffDraft()
+        draft.recipientName = "Test Person"
+        draft.reveal = .onDate
+        draft.opensAt = .now.addingTimeInterval(86_400)
+        let s = try await store.create(draft)
+        var cd = ContributionDraft(); cd.authorName = "A"; cd.body = "Hello"
+        _ = try await store.submit(cd, to: s.id)
+
+        let sealed = try await store.reveal(slug: s.slug, key: "")
+        XCTAssertEqual(sealed.contributorCount, 1)
+        let early = try await store.revealContributions(slug: s.slug, key: "")
+        XCTAssertTrue(early.isEmpty, "nothing before it opens")
+        do {
+            _ = try await store.open(slug: s.slug, key: "")
+            XCTFail("opened before it was due")
+        } catch StoreError.sealed { }
+
+        try await store.setState(s.id, .open)
+        let opened = try await store.open(slug: s.slug, key: "")
+        XCTAssertTrue(opened.isOpen)
+        let entries = try await store.revealContributions(slug: s.slug, key: "")
+        XCTAssertEqual(entries.count, 1)
     }
 
     func testMockStoreRejectsAfterSeal() async throws {

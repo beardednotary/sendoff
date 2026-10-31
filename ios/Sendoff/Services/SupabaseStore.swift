@@ -110,16 +110,19 @@ final class SupabaseStore: SendoffStore {
         var created_at: Date
         var media: [MediaRow]?
 
-        func model() -> Contribution {
+        func model(urls: [String: URL] = [:], media override: [MediaRow]? = nil) -> Contribution {
             Contribution(id: id, sendoffID: sendoff_id, authorID: author_id, authorName: author_name,
                          authorRelationship: author_relationship, body: body, promptUsed: prompt_used,
-                         status: status, sharedWithGroup: shared_with_group, pinned: pinned,
-                         sortOrder: sort_order, media: (media ?? []).map { $0.model() }, createdAt: created_at)
+                         status: status, sharedWithGroup: shared_with_group, pinned: pinned, sortOrder: sort_order,
+                         media: (override ?? media ?? []).sorted { ($0.sort_order ?? 0) < ($1.sort_order ?? 0) }.map { $0.model(urls: urls) },
+                         createdAt: created_at)
         }
     }
 
     private struct MediaRow: Codable {
         var id: UUID
+        var contribution_id: UUID?
+        var sort_order: Int?
         var kind: MediaKind
         var storage_path: String
         var processed_path: String?
@@ -129,10 +132,10 @@ final class SupabaseStore: SendoffStore {
         var width: Int?
         var height: Int?
 
-        func model() -> Media {
-            // Signed URLs are resolved lazily by MediaResolver; keep paths here.
-            Media(id: id, kind: kind, url: nil, posterURL: nil, durationSeconds: duration_seconds,
-                  transcript: transcript, width: width, height: height, localURL: nil)
+        /// Media is private: `urls` maps storage paths to signed URLs (see `signedMedia`).
+        func model(urls: [String: URL] = [:]) -> Media {
+            Media(id: id, kind: kind, url: urls[storage_path], posterURL: poster_path.flatMap { urls[$0] },
+                  durationSeconds: duration_seconds, transcript: transcript, width: width, height: height, localURL: nil)
         }
     }
 
@@ -150,8 +153,12 @@ final class SupabaseStore: SendoffStore {
     /// Covers live in the private `uploads` bucket; the organizer's read policy lets them sign
     /// their own. Signed for a day, which outlasts any session in the library.
     private func signedCovers(_ paths: [String]) async -> [String: URL] {
+        await signed(paths, in: "uploads")
+    }
+
+    private func signed(_ paths: [String], in bucket: String) async -> [String: URL] {
         guard !paths.isEmpty,
-              let results = try? await client.storage.from("uploads").createSignedURLs(paths: paths, expiresIn: 86_400)
+              let results = try? await client.storage.from(bucket).createSignedURLs(paths: paths, expiresIn: 86_400)
         else { return [:] }
         var urls: [String: URL] = [:]
         for r in results { if let u = r.signedURL { urls[r.path] = u } }
@@ -212,7 +219,16 @@ final class SupabaseStore: SendoffStore {
     func contributions(for sendoffID: UUID) async throws -> [Contribution] {
         let rows: [ContributionRow] = try await client.from("contributions")
             .select("*, media(*)").eq("sendoff_id", value: sendoffID).execute().value
-        return rows.map { $0.model() }.sorted(by: Contribution.revealOrder)
+        let urls = await signedMedia(rows.flatMap { $0.media ?? [] })
+        return rows.map { $0.model(urls: urls) }.sorted(by: Contribution.revealOrder)
+    }
+
+    /// The organizer reads `uploads` and `processed` under their Sendoff (0002_web.sql), so they
+    /// sign their own: originals in `uploads`, posters in `processed`.
+    private func signedMedia(_ media: [MediaRow]) async -> [String: URL] {
+        let originals = await signed(media.map(\.storage_path), in: "uploads")
+        let posters = await signed(media.compactMap(\.poster_path), in: "processed")
+        return originals.merging(posters) { a, _ in a }
     }
 
     func setStatus(_ contributionID: UUID, _ status: ContributionStatus) async throws {
@@ -291,16 +307,65 @@ final class SupabaseStore: SendoffStore {
 
     // MARK: Recipient
 
-    func revealContributions(for sendoffID: UUID) async throws -> [Contribution] {
-        let rows: [ContributionRow] = try await client.from("contributions")
-            .select("*, media(*)").eq("sendoff_id", value: sendoffID).eq("status", value: "approved")
-            .execute().value
-        return rows.map { $0.model() }.sorted(by: Contribution.revealOrder)
+    /// What `sendoff_reveal` and `sendoff_open` return (0005_cover_photo.sql).
+    private struct RevealRow: Codable {
+        var id: UUID; var recipient_name: String; var occasion: Occasion; var from_line: String?
+        var cover_message: String?; var theme_id: ThemeID; var music_track_id: String?
+        var state: SendoffState; var reveal: RevealPolicy; var opens_at: Date?
+        var organizer_name: String?; var contributor_count: Int?; var plan: Plan?
+        var recipient_photo_path: String?
     }
 
-    func markOpened(_ sendoffID: UUID) async throws {
-        try await client.from("sendoffs").update(["opened_at": Date.now.ISO8601Format()])
-            .eq("id", value: sendoffID).execute()
+    func reveal(slug: String, key: String) async throws -> Sendoff {
+        try await ensureSession()
+        let rows: [RevealRow] = try await client.rpc("sendoff_reveal", params: ["p_slug": slug, "p_key": key])
+            .execute().value
+        guard let r = rows.first else { throw StoreError.notFound }
+        return await revealModel(r, slug: slug, key: key)
+    }
+
+    func open(slug: String, key: String) async throws -> Sendoff {
+        try await ensureSession()
+        let rows: [RevealRow] = try await client.rpc("sendoff_open", params: ["p_slug": slug, "p_key": key])
+            .execute().value
+        guard let r = rows.first else { throw StoreError.sealed }
+        return await revealModel(r, slug: slug, key: key)
+    }
+
+    func revealContributions(slug: String, key: String) async throws -> [Contribution] {
+        try await ensureSession()
+        let params = ["p_slug": slug, "p_key": key]
+        async let entries: [ContributionRow] = client.rpc("reveal_contributions", params: params).execute().value
+        async let files: [MediaRow] = client.rpc("reveal_media", params: params).execute().value
+        let (rows, media) = try await (entries, files)
+        let urls = await signForRecipient(slug: slug, key: key,
+                                          paths: media.flatMap { [$0.storage_path, $0.poster_path].compactMap { $0 } })
+        let byEntry = Dictionary(grouping: media) { $0.contribution_id }
+        return rows.map { $0.model(urls: urls, media: byEntry[$0.id] ?? []) }.sorted(by: Contribution.revealOrder)
+    }
+
+    private func revealModel(_ r: RevealRow, slug: String, key: String) async -> Sendoff {
+        var photo: URL?
+        if let path = r.recipient_photo_path { photo = await signForRecipient(slug: slug, key: key, paths: [path])[path] }
+        var s = Sendoff(id: r.id, slug: slug, organizerID: UUID(), organizerName: r.organizer_name ?? "the organizer",
+                        occasion: r.occasion, recipientName: r.recipient_name, recipientPhotoURL: photo,
+                        fromLine: r.from_line, coverMessage: r.cover_message, themeID: r.theme_id,
+                        musicTrackID: r.music_track_id, state: r.state, moderation: .trust, reveal: r.reveal,
+                        closesAt: nil, opensAt: r.opens_at, openedAt: nil, plan: r.plan ?? .free,
+                        contributorLimit: 0, createdAt: .now, recipientKey: key)
+        s.contributorCount = r.contributor_count
+        return s
+    }
+
+    /// The recipient holds no storage grant; `sign-media` checks the key and signs for them.
+    private func signForRecipient(slug: String, key: String, paths: [String]) async -> [String: URL] {
+        guard !paths.isEmpty else { return [:] }
+        struct Body: Encodable { let slug: String; let key: String; let paths: [String] }
+        struct Reply: Decodable { let urls: [String: String] }
+        guard let reply: Reply = try? await client.functions.invoke(
+            "sign-media", options: FunctionInvokeOptions(body: Body(slug: slug, key: key, paths: paths)))
+        else { return [:] }
+        return reply.urls.compactMapValues(URL.init(string:))
     }
 
     // MARK: Catalog
