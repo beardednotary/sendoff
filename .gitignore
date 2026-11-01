@@ -2,6 +2,8 @@
 ios/*.xcodeproj
 ios/*.xcworkspace
 ios/DerivedData/
+# Archives and App Store uploads (xcodebuild archive / -exportArchive)
+ios/build/
 ios/Config/Local.xcconfig
 *.xcuserstate
 xcuserdata/
