@@ -41,6 +41,20 @@ export interface RevealSendoff {
   plan: 'free' | 'single' | 'plus' | 'org';
   /** Their photo for the cover. Optional; the iOS app sets it when the Sendoff is made. */
   recipientPhotoUrl: string | null;
+  /** A song from Apple Music in place of the stock track. Present only once it has Plus. */
+  song?: LinkedSong | null;
+}
+
+export interface LinkedSong {
+  id: string;
+  title: string;
+  artist: string;
+}
+
+/** Apple's 30-second preview of a linked song and its Apple Music page, for attribution. */
+export interface SongPreview {
+  previewUrl: string | null;
+  appleMusicUrl: string | null;
 }
 
 export interface Media {

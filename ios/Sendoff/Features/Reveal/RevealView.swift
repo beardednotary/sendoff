@@ -1,5 +1,6 @@
 import SwiftUI
 import AVFoundation
+import MusicKit
 
 /// Loads a Sendoff from the recipient's link (slug + key) and shows the reveal. The entries
 /// arrive only when the seal is broken and the server agrees it is due.
@@ -104,7 +105,11 @@ struct RevealView: View {
             player.stop()
         }
         .sensoryFeedback(.impact(weight: .heavy), trigger: opened)
-        .task { trackTitle = try? await store.tracks().first { $0.id == sendoff.musicTrackID }?.title }
+        .task {
+            // A linked song is credited to Apple Music wherever it is named.
+            if let song = sendoff.song { trackTitle = "\(song.line) \u{00B7} Apple Music"; return }
+            trackTitle = try? await store.tracks().first { $0.id == sendoff.musicTrackID }?.title
+        }
     }
 
     // MARK: Chrome
@@ -326,7 +331,9 @@ struct RevealView: View {
         holding = false
         openError = nil
         withAnimation(reduceMotion ? Motion.fade : .easeOut(duration: 0.7)) { opened = true }
-        player.play(trackID: sendoff.musicTrackID)
+        player.play(sendoff) { [store, sendoff] in
+            await store.songPreview(slug: sendoff.slug, key: sendoff.recipientKey ?? "")
+        }
         Task {
             async let pause: Void = Task.sleep(for: .milliseconds(reduceMotion ? 300 : 650))
             if let open {
@@ -397,10 +404,30 @@ struct RevealView: View {
 @Observable
 final class MusicPlayer {
     private var player: AVPlayer?
+    /// Playing the whole song through Apple Music, which can pause but not fade.
+    private var appleMusic = false
     private(set) var isPlaying = false
+
+    /// The Sendoff's song when it has one, otherwise its stock track. An Apple Music subscriber
+    /// who has let Sendoff use Apple Music hears the whole song; anyone else hears Apple's
+    /// 30-second preview, from MusicKit or else from `preview` (the server). With neither, the
+    /// stock track plays.
+    func play(_ s: Sendoff, preview: @escaping () async -> URL?) {
+        guard let song = s.song else { play(trackID: s.musicTrackID); return }
+        Task { @MainActor in
+            if await playWholeSong(song) { return }
+            var url = await musicKitPreview(song)
+            if url == nil { url = await preview() }
+            if let url { start(url) } else { play(trackID: s.musicTrackID) }
+        }
+    }
 
     func play(trackID: String?) {
         guard let trackID, let url = Self.url(for: trackID) else { return }
+        start(url)
+    }
+
+    private func start(_ url: URL) {
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
         try? AVAudioSession.sharedInstance().setActive(true)
         let p = AVPlayer(url: url)
@@ -411,10 +438,45 @@ final class MusicPlayer {
         fade(to: 0.8, over: 1.5)
     }
 
-    func duck() { fade(to: 0.2, over: 0.4) }
-    func unduck() { fade(to: 0.8, over: 1.5) }
+    @MainActor private func playWholeSong(_ song: LinkedSong) async -> Bool {
+        guard MusicAuthorization.currentStatus == .authorized,
+              (try? await MusicSubscription.current)?.canPlayCatalogContent == true,
+              let item = await catalogSong(song)
+        else { return false }
+        let p = ApplicationMusicPlayer.shared
+        p.queue = [item]
+        do { try await p.play() } catch { return false }
+        appleMusic = true
+        isPlaying = true
+        return true
+    }
+
+    private func musicKitPreview(_ song: LinkedSong) async -> URL? {
+        guard MusicAuthorization.currentStatus == .authorized else { return nil }
+        return await catalogSong(song)?.previewAssets?.first?.url
+    }
+
+    private func catalogSong(_ song: LinkedSong) async -> Song? {
+        let request = MusicCatalogResourceRequest<Song>(matching: \.id, equalTo: MusicItemID(song.id))
+        return try? await request.response().items.first
+    }
+
+    // Apple Music can't be faded from here, so under a voice note or video it pauses instead.
+    func duck() {
+        if appleMusic { Task { @MainActor in ApplicationMusicPlayer.shared.pause() } } else { fade(to: 0.2, over: 0.4) }
+    }
+
+    func unduck() {
+        if appleMusic { Task { @MainActor in try? await ApplicationMusicPlayer.shared.play() } } else { fade(to: 0.8, over: 1.5) }
+    }
 
     func stop() {
+        if appleMusic {
+            appleMusic = false
+            isPlaying = false
+            Task { @MainActor in ApplicationMusicPlayer.shared.stop() }
+            return
+        }
         fade(to: 0, over: 0.6)
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(650))

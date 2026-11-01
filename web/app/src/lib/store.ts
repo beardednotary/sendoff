@@ -1,4 +1,4 @@
-import { StoreError, type Contribution, type ContributionDraft, type MusicTrack, type PublicSendoff, type RevealSendoff } from './types';
+import { StoreError, type Contribution, type ContributionDraft, type MusicTrack, type PublicSendoff, type RevealSendoff, type SongPreview } from './types';
 import { Config } from './config';
 
 export type Progress = (fraction: number, label: string) => void;
@@ -21,6 +21,8 @@ export interface WebStore {
 
   // Catalog
   track(id: string | null): Promise<MusicTrack | null>;
+  /** The linked song's preview, looked up by the `apple-music` function with the recipient key. */
+  songPreview(slug: string, key: string): Promise<SongPreview | null>;
 }
 
 let instance: WebStore | undefined;
@@ -53,4 +55,5 @@ class NotYetStore implements WebStore {
   open(): Promise<RevealSendoff> { this.fail(); }
   revealContributions(): Promise<Contribution[]> { this.fail(); }
   async track(): Promise<MusicTrack | null> { return null; }
+  async songPreview(): Promise<SongPreview | null> { return null; }
 }

@@ -15,6 +15,7 @@ struct CreateFlow: View {
     @State private var tracks: [MusicTrack] = []
     @State private var photoItem: PhotosPickerItem?
     @State private var framing: PhotoToFrame?
+    @State private var pickingSong = false
     @State private var saving = false
     @State private var error: String?
 
@@ -237,8 +238,10 @@ struct CreateFlow: View {
 
             Eyebrow(text: "Music when it opens").padding(.top, 30)
             VStack(spacing: 0) {
+                songRow
+                Rule()
                 ForEach(tracks) { tr in
-                    choiceRow(selected: draft.musicTrackID == tr.id) { draft.musicTrackID = tr.id } content: {
+                    choiceRow(selected: draft.song == nil && draft.musicTrackID == tr.id) { draft.song = nil; draft.musicTrackID = tr.id } content: {
                         Image(systemName: "music.note").foregroundStyle(theme.faintInkColor).frame(width: 44)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(tr.title).font(Typeface.bodyStrong).foregroundStyle(theme.inkColor)
@@ -249,13 +252,36 @@ struct CreateFlow: View {
                     }
                     Rule()
                 }
-                choiceRow(selected: draft.musicTrackID == nil) { draft.musicTrackID = nil } content: {
+                choiceRow(selected: draft.song == nil && draft.musicTrackID == nil) { draft.song = nil; draft.musicTrackID = nil } content: {
                     Image(systemName: "speaker.slash").foregroundStyle(theme.faintInkColor).frame(width: 44)
                     Text("No music").font(Typeface.bodyStrong).foregroundStyle(theme.inkColor)
                 }
             }
-            Text("Plus can link a song from Apple Music instead.").font(Typeface.caption).foregroundStyle(theme.faintInkColor).padding(.top, 8)
+            if draft.song != nil {
+                // The stock pick stays underneath as what plays if the Sendoff never gets Plus.
+                Text("A song comes with Plus. Without it, they hear \(fallbackTrackName) instead.")
+                    .font(Typeface.caption).foregroundStyle(theme.faintInkColor).padding(.top, 8)
+            }
         }
+        .sheet(isPresented: $pickingSong) {
+            SongPicker { song in draft.song = song }.appTheme()
+        }
+    }
+
+    /// Any song from Apple Music. Free to try, like the paid looks; the recipient hears it with Plus.
+    private var songRow: some View {
+        choiceRow(selected: draft.song != nil) { pickingSong = true } content: {
+            Image(systemName: "music.note.list").foregroundStyle(theme.faintInkColor).frame(width: 44)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(draft.song?.title ?? "A song from Apple Music \u{00B7} Plus").font(Typeface.bodyStrong).foregroundStyle(theme.inkColor).lineLimit(1)
+                Text(draft.song.map { "\($0.artist) \u{00B7} Change" } ?? "Any song you like")
+                    .font(Typeface.caption).foregroundStyle(theme.faintInkColor).lineLimit(1)
+            }
+        }
+    }
+
+    private var fallbackTrackName: String {
+        tracks.first { $0.id == draft.musicTrackID }?.title ?? "no music"
     }
 
     private func choiceRow<C: View>(selected: Bool, action: @escaping () -> Void, @ViewBuilder content: () -> C) -> some View {

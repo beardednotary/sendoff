@@ -259,6 +259,9 @@ struct Sendoff: Identifiable, Codable, Hashable {
     var recipientKey: String? = nil
     /// Entries that are not hidden, as the recipient's link reports it before the seal is broken.
     var contributorCount: Int? = nil
+    /// A song from Apple Music in place of the stock track. A Plus feature: the recipient's link
+    /// carries it only once the Sendoff has Plus (0007_apple_music.sql).
+    var song: LinkedSong? = nil
 
     /// `https://{host}/s/{slug}?t={token}`: the link everyone who contributes receives.
     var shareURL: URL {
@@ -371,6 +374,24 @@ struct Contribution: Identifiable, Codable, Hashable {
 }
 
 // MARK: - Music
+
+/// A song from the Apple Music catalog. Only its id and name are kept; MusicKit plays it.
+struct LinkedSong: Codable, Hashable {
+    var id: String
+    var title: String
+    var artist: String
+
+    /// "Here Comes the Sun · The Beatles"
+    var line: String { artist.isEmpty ? title : "\(title) \u{00B7} \(artist)" }
+}
+
+extension LinkedSong {
+    /// From the database's three nullable columns; nil unless there is a song.
+    init?(id: String?, title: String?, artist: String?) {
+        guard let id, let title else { return nil }
+        self.init(id: id, title: title, artist: artist ?? "")
+    }
+}
 
 struct MusicTrack: Identifiable, Codable, Hashable {
     var id: String

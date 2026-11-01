@@ -25,6 +25,8 @@ protocol SendoffStore: AnyObject, Observable {
     func update(_ sendoff: Sendoff) async throws -> Sendoff
     /// Replaces the cover with a framed JPEG on disk, while the Sendoff has not opened.
     func setCover(_ jpeg: URL, for sendoffID: UUID) async throws
+    /// Links a song from Apple Music, or removes it with nil, while the Sendoff has not opened.
+    func setSong(_ song: LinkedSong?, for sendoffID: UUID) async throws
     func setState(_ id: UUID, _ state: SendoffState) async throws
     func contributions(for sendoffID: UUID) async throws -> [Contribution]
     func setStatus(_ contributionID: UUID, _ status: ContributionStatus) async throws
@@ -43,6 +45,9 @@ protocol SendoffStore: AnyObject, Observable {
     func open(slug: String, key: String) async throws -> Sendoff
     /// The approved entries with playable media. Empty until the Sendoff is open.
     func revealContributions(slug: String, key: String) async throws -> [Contribution]
+    /// Apple's 30-second preview of the Sendoff's song, for a listener MusicKit can't play it for.
+    /// Nil without a song, without Plus, or before MusicKit is set up on the server.
+    func songPreview(slug: String, key: String) async -> URL?
 
     // Catalog
     func tracks() async throws -> [MusicTrack]
@@ -64,6 +69,8 @@ struct SendoffDraft {
     var coverMessage: String = ""
     /// A photo of them for the cover, picked on device. Optional.
     var recipientPhoto: URL? = nil
+    /// A song from Apple Music instead of a stock track. Plus.
+    var song: LinkedSong? = nil
     var themeID: ThemeID = .letterpress
     var musicTrackID: String? = nil
     var reveal: RevealPolicy = .onDate
@@ -158,7 +165,7 @@ final class MockStore: SendoffStore {
             state: .collecting, moderation: d.moderation, reveal: d.reveal,
             closesAt: d.closesAt, opensAt: d.reveal == .onDate ? d.opensAt : nil, openedAt: nil,
             plan: .free, contributorLimit: Plan.free.entryLimit, createdAt: .now, contributorGoal: d.goal,
-            contributeToken: Slug.token(bytes: 16), recipientKey: Slug.token(bytes: 24)
+            contributeToken: Slug.token(bytes: 16), recipientKey: Slug.token(bytes: 24), song: d.song
         )
         sendoffs.insert(s, at: 0)
         contributionsByID[s.id] = []
@@ -169,6 +176,13 @@ final class MockStore: SendoffStore {
         guard let i = sendoffs.firstIndex(where: { $0.id == sendoffID }), sendoffs[i].state != .open else { throw StoreError.notAllowed }
         sendoffs[i].recipientPhotoURL = jpeg
     }
+
+    func setSong(_ song: LinkedSong?, for sendoffID: UUID) async throws {
+        guard let i = sendoffs.firstIndex(where: { $0.id == sendoffID }), sendoffs[i].state != .open else { throw StoreError.notAllowed }
+        sendoffs[i].song = song
+    }
+
+    func songPreview(slug: String, key: String) async -> URL? { nil }
 
     func update(_ sendoff: Sendoff) async throws -> Sendoff {
         guard let i = sendoffs.firstIndex(where: { $0.id == sendoff.id }) else { throw StoreError.notFound }

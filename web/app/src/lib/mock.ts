@@ -2,6 +2,7 @@ import type { WebStore, Progress } from './store';
 import {
   StoreError, StoreMessages, revealOrder,
   type Contribution, type ContributionDraft, type Media, type MusicTrack, type PublicSendoff, type RevealSendoff,
+  type SongPreview,
 } from './types';
 import { uuid } from './format';
 
@@ -168,4 +169,6 @@ export class MockStore implements WebStore {
   async track(id: string | null): Promise<MusicTrack | null> {
     return TRACKS.find((t) => t.id === id) ?? null;
   }
+
+  async songPreview(): Promise<SongPreview | null> { return null; }
 }

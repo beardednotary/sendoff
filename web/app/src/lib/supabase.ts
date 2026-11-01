@@ -3,6 +3,7 @@ import type { WebStore, Progress } from './store';
 import {
   StoreError, StoreMessages, revealOrder,
   type Contribution, type ContributionDraft, type Media, type MusicTrack, type PublicSendoff, type RevealSendoff,
+  type SongPreview,
 } from './types';
 
 // Mirrors supabase/migrations/0001_init.sql and 0002_web.sql. Contributors and recipients get an
@@ -18,6 +19,7 @@ interface SendoffRevealRow {
   theme_id: RevealSendoff['themeId']; music_track_id: string | null; state: RevealSendoff['state']; reveal: RevealSendoff['reveal'];
   opens_at: string | null; organizer_name: string | null; contributor_count: number; plan: RevealSendoff['plan'];
   recipient_photo_path: string | null;
+  apple_music_id: string | null; apple_music_title: string | null; apple_music_artist: string | null;
 }
 interface MediaRow {
   id: string; contribution_id: string; kind: Media['kind']; storage_path: string; processed_path: string | null; poster_path: string | null;
@@ -174,6 +176,8 @@ export class SupabaseStore implements WebStore {
       themeId: r.theme_id, musicTrackId: r.music_track_id, state: r.state, reveal: r.reveal, opensAt: date(r.opens_at),
       organizerName: r.organizer_name ?? 'the organizer', contributorCount: r.contributor_count ?? 0, plan: r.plan ?? 'free',
       recipientPhotoUrl: photo,
+      song: r.apple_music_id && r.apple_music_title
+        ? { id: r.apple_music_id, title: r.apple_music_title, artist: r.apple_music_artist ?? '' } : null,
     };
   }
 
@@ -241,6 +245,13 @@ export class SupabaseStore implements WebStore {
   }
 
   // MARK: Catalog
+
+  async songPreview(slug: string, key: string): Promise<SongPreview | null> {
+    const storefront = (navigator.language.split('-')[1] ?? 'us').toLowerCase();
+    const { data, error } = await this.client.functions.invoke<SongPreview>('apple-music', { body: { slug, key, storefront } });
+    if (error || !data) return null;
+    return { previewUrl: data.previewUrl ?? null, appleMusicUrl: data.appleMusicUrl ?? null };
+  }
 
   async track(id: string | null): Promise<MusicTrack | null> {
     if (!id) return null;

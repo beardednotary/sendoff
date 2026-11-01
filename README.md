@@ -96,6 +96,15 @@ Stock music: put the four licensed tracks in `supabase/stock-music/` (gitignored
 id, `warm_piano.m4a`, `bright_strings.m4a`, `reflective_guitar.m4a`, `triumphant_brass.m4a`, and
 run the script again; it uploads them to the public `stock-music` bucket.
 
+Apple Music (Plus): turn on **MusicKit** for the `com.dahvio.sendoff` App ID. For the 30-second
+previews the website and non-subscribers hear, create a Media ID with MusicKit and a key with
+**Media Services**, then give the `apple-music` function its secrets. Run it from the folder
+holding the `.p8`, which Apple lets you download once:
+
+```bash
+supabase secrets set --project-ref <ref> MUSICKIT_TEAM_ID=QNK434TFA6 MUSICKIT_KEY_ID=<key id> MUSICKIT_PRIVATE_KEY="$(cat AuthKey_<key id>.p8)"
+```
+
 ## The website
 
 sendoffapp.com is served by Cloudflare: the Worker `sendoffapp` (static assets only, no code;
