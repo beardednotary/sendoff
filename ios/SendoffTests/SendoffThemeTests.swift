@@ -206,6 +206,17 @@ final class ModelTests: XCTestCase {
                      sharedWithGroup: false, pinned: false, sortOrder: nil, media: [], createdAt: .now)
     }
 
+    func testReportEmailNamesTheSendoffAndTheEntry() throws {
+        let s = MockStore.sampleSendoff
+        let entry = note("Dana", "Short and sweet.")
+        let url = try XCTUnwrap(RevealView.reportURL(s, entry))
+        let parts = try XCTUnwrap(URLComponents(url: url, resolvingAgainstBaseURL: false))
+        XCTAssertEqual(parts.scheme, "mailto")
+        XCTAssertEqual(parts.path, "support@sendoffapp.com")
+        let body = try XCTUnwrap(parts.queryItems?.first { $0.name == "body" }?.value)
+        XCTAssertTrue(body.contains(s.slug) && body.contains(entry.id.uuidString.lowercased()), body)
+    }
+
     func testEveryPlusLookFallsBackToAnIncludedOne() {
         for t in ThemeCatalog.premium { XCTAssertFalse(ThemeCatalog.theme(t.id.freeAlternative).premium, t.name) }
         for t in ThemeCatalog.included { XCTAssertEqual(t.id.freeAlternative, t.id, t.name) }

@@ -277,6 +277,8 @@ button { font: inherit; color: inherit; }
 .segments b.on { background: var(--ink); }
 .topbar .count { font-size: 13px; color: var(--faint); }
 
+.entry-stage .report { display: inline-block; margin-top: 28px; color: var(--faint); text-decoration: none; }
+
 /* Kept */
 #kept { justify-content: center; }
 

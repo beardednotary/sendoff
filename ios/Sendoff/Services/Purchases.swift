@@ -116,6 +116,18 @@ final class PurchaseManager {
         return updated
     }
 
+    /// Buys a pack of credits for people who do this often. One goes on `sendoff` straight away
+    /// if it is still Free; the rest wait for the next ones. Returns nil when the person cancels.
+    func buyPack(_ id: ProductID, for sendoff: Sendoff) async throws -> Sendoff? {
+        switch try await buy(id) {
+        case .completed: break
+        case .cancelled: return nil
+        case .pending: throw PurchaseError.pending
+        }
+        guard sendoff.plan < .single else { return sendoff }
+        return try await upgrade(sendoff, to: .single)
+    }
+
     func restore() async {
         try? await AppStore.sync()
         await refreshOwnedThemes()

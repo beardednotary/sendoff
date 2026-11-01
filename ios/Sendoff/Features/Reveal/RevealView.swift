@@ -50,6 +50,7 @@ struct RevealView: View {
     @Environment(\.store) private var store
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.openURL) private var openURL
     var sendoff: Sendoff
     var contributions: [Contribution]
     var preview: Bool
@@ -73,6 +74,7 @@ struct RevealView: View {
     @State private var pdf: SharedFile?
     @State private var makingPDF = false
     @State private var pdfError = false
+    @State private var reporting: Contribution?
 
     private var theme: SendoffTheme { ThemeCatalog.theme(sendoff.themeID) }
     private var canOpen: Bool { preview || sendoff.isOpen || (sendoff.opensAt.map { $0 <= .now } ?? false) }
@@ -289,7 +291,11 @@ struct RevealView: View {
     private func entry(_ i: Int) -> some View {
         GeometryReader { g in
             ScrollView {
-                EntryPage(contribution: entries[i])
+                VStack(alignment: .leading, spacing: 32) {
+                    EntryPage(contribution: entries[i])
+                    // The organizer can hide an entry themselves; the recipient reports it to us.
+                    if !preview { reportButton(entries[i]) }
+                }
                     .offset(x: dragX * 0.25)
                     .opacity(1 - min(0.4, abs(dragX) / 600))
                     .padding(.horizontal, 20)
@@ -303,6 +309,32 @@ struct RevealView: View {
         .simultaneousGesture(pageGesture)
         .onTapGesture { advance() }
         .onAppear { if entries[i].voice != nil || entries[i].video != nil { player.duck() } else { player.unduck() } }
+    }
+
+    private func reportButton(_ c: Contribution) -> some View {
+        Button { reporting = c } label: {
+            Label("Report", systemImage: "flag").labelStyle(TightLabel())
+                .font(Typeface.caption).foregroundStyle(theme.faintInkColor)
+        }
+        .buttonStyle(.pressable)
+        .confirmationDialog("Report this entry?", isPresented: Binding(get: { reporting != nil }, set: { if !$0 { reporting = nil } }),
+                            titleVisibility: .visible, presenting: reporting) { entry in
+            Button("Write to Sendoff") { if let url = Self.reportURL(sendoff, entry) { openURL(url) } }
+        } message: { _ in
+            Text("Tell us what's wrong and we'll look into it. Nobody else is told who reported it.")
+        }
+    }
+
+    /// An email to support, already naming the Sendoff and the entry so we can find it.
+    static func reportURL(_ s: Sendoff, _ c: Contribution) -> URL? {
+        var u = URLComponents()
+        u.scheme = "mailto"
+        u.path = "support@sendoffapp.com"
+        u.queryItems = [
+            URLQueryItem(name: "subject", value: "Report an entry"),
+            URLQueryItem(name: "body", value: "Sendoff: \(s.slug)\nEntry: \(c.id.uuidString.lowercased()) (from \(c.authorName))\n\nWhat's wrong with it?\n"),
+        ]
+        return u.url
     }
 
     private var kept: some View {

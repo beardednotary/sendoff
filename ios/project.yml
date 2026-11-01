@@ -128,6 +128,9 @@ targets:
     platform: iOS
     sources:
       - path: SendoffTests
+      # SKTestSession loads the products from here (ReviewScreens).
+      - path: Sendoff.storekit
+        buildPhase: resources
     dependencies:
       - target: Sendoff
     settings:
