@@ -99,13 +99,13 @@ function formView(s: PublicSendoff, existing: Contribution | null): HTMLElement 
   const keptMedia = (): Media[] => (existing?.media ?? []).filter((m) => draft.keepMediaIds.includes(m.id));
 
   // Fields
-  const body = h('textarea', { id: 'body', class: 'writing', placeholder: 'Start anywhere. A memory, a thank you, something you never said.', maxLength: Limits.bodyCharacters, value: draft.body, 'aria-label': `What you want ${first} to read` });
+  const body = h('textarea', { id: 'body', class: 'writing', dir: 'auto', placeholder: 'Start anywhere. A memory, a thank you, something you never said.', maxLength: Limits.bodyCharacters, value: draft.body, 'aria-label': `What you want ${first} to read` });
   const count = h('span', {}, String(draft.body.length));
   const countLine = h('p', { class: 'caption', hidden: true, style: 'margin-top:8px' }, count, ` / ${Limits.bodyCharacters}`);
   const grow = () => { body.style.height = 'auto'; body.style.height = `${Math.max(150, body.scrollHeight)}px`; };
   body.addEventListener('input', grow);
-  const name = h('input', { id: 'name', placeholder: 'Your name', autocomplete: 'name', value: draft.authorName });
-  const rel = h('input', { id: 'rel', placeholder: 'Your 2019 intern', value: draft.authorRelationship });
+  const name = h('input', { id: 'name', dir: 'auto', placeholder: 'Your name', autocomplete: 'name', value: draft.authorName });
+  const rel = h('input', { id: 'rel', dir: 'auto', placeholder: 'Your 2019 intern', value: draft.authorRelationship });
   const share = h('input', { type: 'checkbox', role: 'switch', checked: draft.sharedWithGroup });
   const submit = h('button', { class: 'btn primary wide', disabled: true }, existing ? 'Save changes' : 'Add yours');
   const error = h('div', { class: 'notice error', role: 'alert', hidden: true });

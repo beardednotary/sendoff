@@ -165,7 +165,10 @@ class Reveal {
         h('div', { style: 'flex:1' }),
         mark,
         h('h1', { class: 'display for' }, `For ${s.recipientName}`),
-        h('p', { class: 'body sub' }, [s.fromLine, s.contributorCount > 0 ? plural(s.contributorCount, 'person', 'people') : null].filter(Boolean).join(' · ')),
+        // The from line is the organizer's own words beside an English count: isolate it so a
+        // right-to-left line can't pull the count into itself.
+        h('p', { class: 'body sub' }, ...[s.fromLine && h('bdi', {}, s.fromLine), s.contributorCount > 0 && plural(s.contributorCount, 'person', 'people')]
+          .filter(Boolean).flatMap((part, n) => (n ? [' · ', part] : [part]))),
         under,
         h('div', { style: 'flex:1' }),
         hint,
@@ -272,10 +275,10 @@ class Reveal {
         : h('div', { class: 'noface' }, seal(initialOf(s.recipientName), 120)),
       h('div', { class: 'name-block' },
         h('p', { class: 'eyebrow', style: 'color:var(--muted)' }, occasionTitle(s.occasion)),
-        h('h1', { class: 'display xl' }, s.recipientName),
-        s.fromLine && h('p', { class: 'body' }, s.fromLine),
+        h('h1', { class: 'display xl', dir: 'auto' }, s.recipientName),
+        s.fromLine && h('p', { class: 'body', dir: 'auto' }, s.fromLine),
       ),
-      s.coverMessage && h('p', { class: 'entry message' }, s.coverMessage),
+      s.coverMessage && h('p', { class: 'entry message', dir: 'auto' }, s.coverMessage),
       h('div', { class: 'between foot' },
         h('p', { class: 'caption row', style: 'gap:6px' },
           h('span', { dataset: { count: '' } }, plural(s.contributorCount, 'person', 'people')),
@@ -307,8 +310,10 @@ class Reveal {
     if (photos.length) article.appendChild(this.photoPager(photos));
     if (video) article.appendChild(this.videoView(video));
     if (voice) article.appendChild(this.voiceView(voice));
-    if (e.body) article.appendChild(h('p', { class: `entry ${entrySize(e.body)}` }, e.body));
-    article.appendChild(h('p', { class: 'sig' }, h('b', {}, e.authorName), e.authorRelationship && h('span', {}, `· ${e.authorRelationship}`)));
+    // What people wrote takes its direction from its own first letter, so Arabic or Hebrew reads
+    // right to left with its punctuation in place, whatever language the page is in.
+    if (e.body) article.appendChild(h('p', { class: `entry ${entrySize(e.body)}`, dir: 'auto' }, e.body));
+    article.appendChild(h('p', { class: 'sig', dir: 'auto' }, h('b', {}, e.authorName), e.authorRelationship && h('span', {}, `· ${e.authorRelationship}`)));
     // The organizer can hide an entry themselves; the recipient reports it to us.
     article.appendChild(h('a', { class: 'report caption', href: reportLink(this.slug, e), onclick: (ev: Event) => {
       if (!window.confirm('Report this entry? Tell us what’s wrong and we’ll look into it. Nobody else is told who reported it.')) ev.preventDefault();
@@ -427,15 +432,15 @@ class Reveal {
   private printKeepsake(): void {
     const sheet = h('div', { class: 'page print-only', id: 'keepsake' },
       h('h1', { class: 'display' }, `For ${this.s.recipientName}`),
-      this.s.fromLine && h('p', { class: 'body' }, this.s.fromLine),
-      this.s.coverMessage && h('p', { class: 'entry' }, this.s.coverMessage),
+      this.s.fromLine && h('p', { class: 'body', dir: 'auto' }, this.s.fromLine),
+      this.s.coverMessage && h('p', { class: 'entry', dir: 'auto' }, this.s.coverMessage),
       h('hr', { class: 'rule' }),
       ...this.entries.map((e) => h('article', { class: 'stack', style: 'margin:24px 0; break-inside:avoid' },
         ...e.media.filter((m) => m.kind === 'photo' && m.url).map((m) => h('img', { src: m.url!, alt: '', style: 'max-width:100%; max-height:300px; object-fit:contain' })),
-        ...e.media.filter((m) => m.kind === 'voice' && m.transcript).map((m) => h('p', { class: 'entry' }, `“${m.transcript}”`)),
+        ...e.media.filter((m) => m.kind === 'voice' && m.transcript).map((m) => h('p', { class: 'entry', dir: 'auto' }, `“${m.transcript}”`)),
         ...e.media.filter((m) => m.kind === 'video').map(() => h('p', { class: 'caption' }, `Video from ${e.authorName} (watch it at the link)`)),
-        e.body && h('p', { class: 'entry' }, e.body),
-        h('p', { class: 'sig' }, h('b', {}, e.authorName), e.authorRelationship && h('span', {}, `· ${e.authorRelationship}`)),
+        e.body && h('p', { class: 'entry', dir: 'auto' }, e.body),
+        h('p', { class: 'sig', dir: 'auto' }, h('b', {}, e.authorName), e.authorRelationship && h('span', {}, `· ${e.authorRelationship}`)),
       )),
       // Paid Sendoffs carry no Sendoff line, here or on the last page of the reveal.
       h('p', { class: 'caption' }, `Opened ${longDate(new Date())}.${this.s.plan === 'free' ? ' Made with Sendoff.' : ''}`),
