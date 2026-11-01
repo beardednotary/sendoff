@@ -1,6 +1,7 @@
 import { h, mount, svg, Icons, setTitle } from '../lib/dom';
 import { applyTheme } from '../lib/themes';
 import { getStore } from '../lib/store';
+import { FooterLinks, TeamsPage } from '../site/content';
 
 // "/" — one screen. The product lives in the app and behind links; this is for the curious.
 // Follows the visitor's light or dark setting, like the app: Evening in dark, Paper in light.
@@ -12,7 +13,8 @@ export async function landingPage(): Promise<void> {
   setTitle('Sendoff');
   const store = await getStore();
   mount(h('main', { class: 'hero' },
-    h('div', { style: 'height:52px; display:flex; align-items:center' }, svg(Icons.pathmark)),
+    h('div', { class: 'between', style: 'height:52px' }, svg(Icons.pathmark),
+      h('nav', { class: 'site-nav', 'aria-label': 'Sendoff' }, h('a', { href: TeamsPage.path }, TeamsPage.label))),
     h('div', { class: 'lead' },
       h('p', { class: 'eyebrow' }, 'Sendoff'),
       h('h1', { class: 'display' }, 'Everyone adds privately.', h('br'), 'One person opens it, on the day.'),
@@ -34,10 +36,12 @@ export async function landingPage(): Promise<void> {
   ));
 }
 
+/** The same footer as the prerendered site pages (src/site/render.ts), so every page links to every other. */
 export function footer(): HTMLElement {
-  return h('footer', { class: 'caption row', style: 'margin-top:48px; gap:18px' },
-    h('a', { href: '/privacy' }, 'Privacy'),
-    h('a', { href: '/support' }, 'Support'),
-    h('span', {}, `\u00A9 ${new Date().getFullYear()} Sendoff`),
+  const links = (list: { href: string; label: string }[]) => h('ul', {}, list.map((a) => h('li', {}, h('a', { href: a.href }, a.label))));
+  return h('footer', { class: 'site-foot caption' },
+    h('nav', { 'aria-label': 'Occasions' }, links(FooterLinks.occasions)),
+    h('nav', { 'aria-label': 'More' }, links(FooterLinks.more)),
+    h('p', {}, `\u00A9 ${new Date().getFullYear()} Sendoff`),
   );
 }
