@@ -1,0 +1,17 @@
+// sendoffapp.com on Cloudflare: the built site served as static assets, with no Worker code.
+// Deploy with `npm run deploy`. public/_headers still applies. Paths that match no file get
+// index.html (the single-page app's router); there is deliberately no _redirects, because
+// Cloudflare applies its rules even to real files, so a catch-all would rewrite the scripts too.
+{
+  "name": "sendoffapp",
+  "compatibility_date": "2026-10-31",
+  // The bare domain serves the site and /.well-known/apple-app-site-association itself; www is
+  // sent here by a redirect rule on the zone.
+  "routes": [{ "pattern": "sendoffapp.com", "custom_domain": true }],
+  "workers_dev": false,
+  "preview_urls": false,
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  }
+}

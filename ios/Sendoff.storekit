@@ -1,0 +1,128 @@
+{
+  "identifier" : "9A1D2C3B-7E6F-4A5B-8C9D-0E1F2A3B4C5D",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "9.99",
+      "familyShareable" : false,
+      "internalID" : "1000000001",
+      "localizations" : [
+        {
+          "description" : "One Sendoff. Up to 100 entries, scheduled reveal, PDF.",
+          "displayName" : "Sendoff",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "sendoff.single",
+      "referenceName" : "Sendoff (one)",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "19.99",
+      "familyShareable" : false,
+      "internalID" : "1000000002",
+      "localizations" : [
+        {
+          "description" : "One Sendoff Plus. Unlimited entries, premium papers, your music.",
+          "displayName" : "Sendoff Plus",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "sendoff.plus",
+      "referenceName" : "Sendoff Plus (one)",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "39.00",
+      "familyShareable" : false,
+      "internalID" : "1000000003",
+      "localizations" : [
+        {
+          "description" : "Five Sendoff credits.",
+          "displayName" : "Pack of 5",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "sendoff.pack5",
+      "referenceName" : "Pack of 5",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "69.00",
+      "familyShareable" : false,
+      "internalID" : "1000000004",
+      "localizations" : [
+        {
+          "description" : "Ten Sendoff credits.",
+          "displayName" : "Pack of 10",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "sendoff.pack10",
+      "referenceName" : "Pack of 10",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "4.99",
+      "familyShareable" : false,
+      "internalID" : "1000000011",
+      "localizations" : [
+        {
+          "description" : "Letterpress with animated foil.",
+          "displayName" : "Gold Leaf",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "theme.gold_leaf",
+      "referenceName" : "Theme: Gold Leaf",
+      "type" : "NonConsumable"
+    },
+    {
+      "displayPrice" : "4.99",
+      "familyShareable" : false,
+      "internalID" : "1000000012",
+      "localizations" : [
+        {
+          "description" : "Video-first. Letterboxed black, film grain.",
+          "displayName" : "Darkroom",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "theme.darkroom",
+      "referenceName" : "Theme: Darkroom",
+      "type" : "NonConsumable"
+    },
+    {
+      "displayPrice" : "4.99",
+      "familyShareable" : false,
+      "internalID" : "1000000013",
+      "localizations" : [
+        {
+          "description" : "End of season. Grass green, chalk lines.",
+          "displayName" : "Field Day",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "theme.field_day",
+      "referenceName" : "Theme: Field Day",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_failTransactionsEnabled" : false,
+    "_locale" : "en_US",
+    "_storefront" : "USA",
+    "_storeKitErrors" : [
+
+    ]
+  },
+  "subscriptionGroups" : [
+
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}

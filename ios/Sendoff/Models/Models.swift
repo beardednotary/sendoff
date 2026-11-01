@@ -128,8 +128,106 @@ enum RevealPolicy: String, Codable, CaseIterable, Identifiable {
     }
 }
 
-enum Plan: String, Codable {
+enum Plan: String, Codable, Comparable {
     case free, single, plus, org
+
+    var title: String {
+        switch self {
+        case .free: "Free"
+        case .single: "Sendoff"
+        case .plus: "Sendoff Plus"
+        case .org: "Organization"
+        }
+    }
+
+    /// How many entries the envelope holds. Mirrors `plan_entry_limit()` in 0003_payments.sql.
+    var entryLimit: Int {
+        switch self {
+        case .free: 10
+        case .single: 100
+        case .plus, .org: 100_000
+        }
+    }
+
+    var includesPremiumThemes: Bool { self >= .plus }
+    /// Free shows "Made with Sendoff" on the last page.
+    var showsFooter: Bool { self == .free }
+
+    private var rank: Int { Plan.order.firstIndex(of: self) ?? 0 }
+    private static let order: [Plan] = [.free, .single, .plus, .org]
+    static func < (a: Plan, b: Plan) -> Bool { a.rank < b.rank }
+}
+
+// MARK: - Payments
+
+/// App Store product identifiers. Mirrors the StoreKit configuration in `ios/Sendoff.storekit`
+/// and the `product_id` column of `entitlements`.
+enum ProductID: String, CaseIterable, Identifiable {
+    case single = "sendoff.single"          // consumable: one Sendoff
+    case plus = "sendoff.plus"              // consumable: one Sendoff Plus
+    case pack5 = "sendoff.pack5"            // consumable: five Sendoff credits
+    case pack10 = "sendoff.pack10"          // consumable: ten Sendoff credits
+    case themeGoldLeaf = "theme.gold_leaf"  // non-consumable
+    case themeDarkroom = "theme.darkroom"
+    case themeFieldDay = "theme.field_day"
+
+    var id: String { rawValue }
+
+    /// The plan a credit from this product unlocks. Nil for theme add-ons.
+    var plan: Plan? {
+        switch self {
+        case .single, .pack5, .pack10: .single
+        case .plus: .plus
+        case .themeGoldLeaf, .themeDarkroom, .themeFieldDay: nil
+        }
+    }
+
+    /// Credits one purchase yields. Each credit is one `entitlements` row.
+    var credits: Int {
+        switch self {
+        case .pack5: 5
+        case .pack10: 10
+        case .single, .plus: 1
+        case .themeGoldLeaf, .themeDarkroom, .themeFieldDay: 0
+        }
+    }
+
+    var isConsumable: Bool { plan != nil }
+
+    var themeID: ThemeID? {
+        switch self {
+        case .themeGoldLeaf: .goldLeaf
+        case .themeDarkroom: .darkroom
+        case .themeFieldDay: .fieldDay
+        default: nil
+        }
+    }
+
+    static func theme(_ id: ThemeID) -> ProductID? {
+        allCases.first { $0.themeID == id }
+    }
+
+    static func credit(for plan: Plan) -> ProductID? {
+        switch plan {
+        case .single: .single
+        case .plus: .plus
+        case .free, .org: nil
+        }
+    }
+}
+
+/// Something the organizer has paid for. A Sendoff credit is consumed when applied to a Sendoff.
+struct Entitlement: Identifiable, Codable, Hashable {
+    var id: UUID
+    var productID: String
+    var source: String              // "storekit", "stripe", "grant"
+    var externalID: String?         // StoreKit transaction id (packs: "{id}#{n}")
+    var consumedBy: UUID?
+    var expiresAt: Date?
+    var createdAt: Date
+
+    var product: ProductID? { ProductID(rawValue: productID) }
+    var isAvailable: Bool { consumedBy == nil && (expiresAt.map { $0 > .now } ?? true) }
 }
 
 struct Sendoff: Identifiable, Codable, Hashable {
@@ -155,29 +253,66 @@ struct Sendoff: Identifiable, Codable, Hashable {
     var createdAt: Date
     /// Organizer's own target, shown as progress on their dashboard. Not a cap.
     var contributorGoal: Int? = nil
+    /// In the shared link as `?t=`. Only the organizer ever holds it; contributors receive it in the URL.
+    var contributeToken: String? = nil
+    /// In the recipient's link as `?k=`. Long and random so it cannot be derived from the slug.
+    var recipientKey: String? = nil
+    /// Entries that are not hidden, as the recipient's link reports it before the seal is broken.
+    var contributorCount: Int? = nil
 
-    var shareURL: URL { URL(string: "https://sendoff.app/s/\(slug)")! }
+    /// `https://{host}/s/{slug}?t={token}`: the link everyone who contributes receives.
+    var shareURL: URL {
+        var c = URLComponents(url: AppConfig.publicOrigin.appending(path: "s/\(slug)"), resolvingAgainstBaseURL: false)!
+        if let contributeToken { c.queryItems = [URLQueryItem(name: "t", value: contributeToken)] }
+        return c.url!
+    }
+
+    /// `https://{host}/s/{slug}/open?k={key}`: the recipient's link. Sealed until the reveal.
+    var revealURL: URL {
+        var c = URLComponents(url: AppConfig.publicOrigin.appending(path: "s/\(slug)/open"), resolvingAgainstBaseURL: false)!
+        if let recipientKey { c.queryItems = [URLQueryItem(name: "k", value: recipientKey)] }
+        return c.url!
+    }
 
     var isCollecting: Bool { state == .collecting }
     var isOpen: Bool { state == .open }
 
-    var recipientInitial: String {
-        String(recipientName.trimmingCharacters(in: .whitespaces).prefix(1)).uppercased()
+    /// The letter on the seal: "M" for Maria Reyes, "P" for Mr. Patel.
+    var recipientInitial: String { Sendoff.initial(of: recipientName) }
+
+    static func initial(of recipientName: String) -> String {
+        let call = callName(recipientName).split(separator: " ")
+        let word = call.count > 1 ? call[1] : Substring(recipientName.trimmingCharacters(in: .whitespaces))
+        return String(word.prefix(1)).uppercased()
     }
 
-    var recipientFirstName: String {
-        recipientName.split(separator: " ").first.map(String.init) ?? recipientName
+    /// What to call them mid-sentence: "Maria", or "Mr. Patel" when the name starts with a title.
+    var recipientFirstName: String { Sendoff.callName(recipientName) }
+
+    static func callName(_ recipientName: String) -> String {
+        let words = recipientName.split(separator: " ").map(String.init)
+        guard let first = words.first else { return recipientName }
+        let titles: Set<String> = ["mr", "mrs", "ms", "mx", "miss", "dr", "prof", "coach", "sgt", "capt", "col", "lt", "rev", "fr", "sr", "sister", "brother"]
+        if words.count > 1, titles.contains(first.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "."))) {
+            return "\(first) \(words[1])"
+        }
+        return first
     }
 
     /// "Sealed until Friday, June 12" / "Open" / "Collecting until ..."
-    var statusLine: String {
+    var statusLine: String { status(dateStyle: .dateTime.weekday(.wide).month(.wide).day()) }
+
+    /// "Sealed until Fri, Jun 12", for the library row.
+    var shortStatusLine: String { status(dateStyle: .dateTime.weekday(.abbreviated).month(.abbreviated).day()) }
+
+    private func status(dateStyle: Date.FormatStyle) -> String {
         switch state {
         case .draft: return "Draft"
         case .collecting:
-            if let closesAt { return "Collecting until \(closesAt.formatted(.dateTime.weekday(.wide).month(.wide).day()))" }
+            if let closesAt { return "Collecting until \(closesAt.formatted(dateStyle))" }
             return "Collecting"
         case .sealed:
-            if let opensAt { return "Sealed until \(opensAt.formatted(.dateTime.weekday(.wide).month(.wide).day()))" }
+            if let opensAt { return "Sealed until \(opensAt.formatted(dateStyle))" }
             return "Sealed"
         case .open: return "Open"
         }

@@ -1,0 +1,3 @@
+# The landing, privacy and support pages are public. Sendoff links (/s/...) are private.
+User-agent: *
+Disallow: /s/

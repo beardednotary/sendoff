@@ -45,154 +45,145 @@ struct ContributeFlow: View {
     @ViewBuilder
     private func content(_ s: Sendoff) -> some View {
         let theme = ThemeCatalog.theme(s.themeID)
-        NavigationStack {
-            ZStack {
-                Paper()
-                if done || existing != nil {
-                    thanks(s, theme)
-                } else if !s.isCollecting {
-                    closed(s, theme)
-                } else {
+        ZStack {
+            Paper()
+            if done || existing != nil {
+                thanks(s, theme)
+            } else if !s.isCollecting {
+                closed(s, theme)
+            } else {
+                VStack(spacing: 0) {
+                    topBar(s, theme)
                     ScrollView {
-                        VStack(alignment: .leading, spacing: 26) {
+                        VStack(alignment: .leading, spacing: 0) {
                             header(s, theme)
-                            promptChips(s, theme)
-                            editor(theme)
-                            attachments(s, theme)
-                            signature(theme)
-                            privacy(s, theme)
+                            promptChips(s, theme).padding(.top, 20)
+                            editor(s, theme).padding(.top, 22)
+                            attachments(theme).padding(.top, 16)
+                            signature(theme).padding(.top, 26)
                         }
-                        .padding(20)
-                        .padding(.bottom, 100)
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 24)
                     }
                     .scrollDismissesKeyboard(.interactively)
-                }
-            }
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() }.foregroundStyle(theme.mutedInkColor) }
-            }
-            .safeAreaInset(edge: .bottom) {
-                if s.isCollecting && !done && existing == nil {
-                    SealButton(title: submitting ? "Adding…" : "Add yours", systemImage: "envelope") { Task { await submit(s) } }
+                    PrimaryButton(title: submitting ? "Adding…" : "Add yours") { Task { await submit(s) } }
                         .disabled(!draft.isValid || submitting)
-                        .padding(20)
-                        .background(theme.paperColor.opacity(0.96))
+                        .opacity(draft.isValid ? 1 : 0.4)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 12)
                 }
             }
-            .sheet(isPresented: $showRecorder) { VoiceRecorderSheet(recorder: recorder) { media in draft.media.append(media) } }
-            .onChange(of: photoItems) { _, items in Task { await loadPhotos(items) } }
-            .onChange(of: videoItem) { _, item in Task { await loadVideo(item) } }
         }
+        .tint(theme.inkColor)
+        .sheet(isPresented: $showRecorder) { VoiceRecorderSheet(recorder: recorder) { media in draft.media.append(media) }.sendoffTheme(theme) }
+        .onChange(of: photoItems) { _, items in Task { await loadPhotos(items) } }
+        .onChange(of: videoItem) { _, item in Task { await loadVideo(item) } }
     }
 
     // MARK: Sections
 
+    private func topBar(_ s: Sendoff, _ theme: SendoffTheme) -> some View {
+        ZStack {
+            Seal(initial: s.recipientInitial, size: 40)
+            HStack {
+                CircleButton(systemImage: "xmark", label: "Close") { dismiss() }
+                Spacer()
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 16)
+    }
+
     private func header(_ s: Sendoff, _ theme: SendoffTheme) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Stamp(text: s.occasion.title)
-                    Text("For \(s.recipientName)")
-                        .font(Typeface.display(32)).foregroundStyle(theme.inkColor)
-                    if let f = s.fromLine { Text(f).font(Typeface.signature).foregroundStyle(theme.mutedInkColor) }
-                }
-                Spacer()
-                Seal(initial: s.recipientInitial, size: 56)
+            Eyebrow(text: "For \(s.recipientName) · \(s.occasion.title)")
+            Text("Write something\nonly \(s.recipientFirstName) will read.")
+                .font(Typeface.display(40)).displayTracking(40)
+                .foregroundStyle(theme.inkColor)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack(alignment: .firstTextBaseline, spacing: 7) {
+                Image(systemName: "lock").font(.system(size: 12))
+                Text("Only \(s.recipientFirstName) and \(s.organizerName) will see this. Nobody else who adds can read it.\(s.closesAt.map { " Add yours by \($0.formatted(.dateTime.weekday(.wide).month(.wide).day()))." } ?? "")")
             }
-            if let c = s.closesAt {
-                Text("Add yours by \(c.formatted(.dateTime.weekday(.wide).month(.wide).day()))")
-                    .font(Typeface.caption).foregroundStyle(theme.mutedInkColor)
-            }
-            Rule()
+            .font(Typeface.caption).foregroundStyle(theme.faintInkColor)
+            .padding(.top, 2)
         }
+        .padding(.top, 18)
     }
 
     private func promptChips(_ s: Sendoff, _ theme: SendoffTheme) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Not sure where to start?").font(Typeface.caption).foregroundStyle(theme.mutedInkColor)
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(s.occasion.prompts, id: \.self) { p in
-                        Button {
-                            draft.promptUsed = p
-                            if draft.body.isEmpty { draft.body = p + "\n\n" }
-                        } label: {
-                            Text(p)
-                                .font(Typeface.caption)
-                                .foregroundStyle(draft.promptUsed == p ? theme.onSealColor : theme.inkColor)
-                                .padding(.horizontal, 12).padding(.vertical, 8)
-                                .background(draft.promptUsed == p ? theme.sealColor : theme.raisedPaperColor, in: Capsule())
-                                .overlay(Capsule().stroke(draft.promptUsed == p ? Color.clear : theme.ruleColor))
-                        }
-                        .buttonStyle(.pressable)
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(s.occasion.prompts, id: \.self) { p in
+                    Button {
+                        draft.promptUsed = p
+                        if draft.body.isEmpty { draft.body = p + "\n\n" }
+                    } label: {
+                        PillLabel(title: p, fill: false, small: true)
+                            .foregroundStyle(draft.promptUsed == p ? theme.onSealColor : theme.inkColor)
+                            .background(draft.promptUsed == p ? theme.sealColor : theme.controlColor, in: Capsule())
                     }
+                    .buttonStyle(.pressable)
                 }
+            }
+            .padding(.horizontal, 20)
+        }
+        .padding(.horizontal, -20)
+    }
+
+    private func editor(_ s: Sendoff, _ theme: SendoffTheme) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            TextField("Start anywhere. A memory, a thank you, something you never said.", text: $draft.body, axis: .vertical)
+                .font(Typeface.entry)
+                .lineSpacing(6)
+                .foregroundStyle(theme.inkColor)
+                .lineLimit(4...30)
+                .onChange(of: draft.body) { _, v in if v.count > Limits.bodyCharacters { draft.body = String(v.prefix(Limits.bodyCharacters)) } }
+            Rule()
+            if draft.body.count > Limits.bodyCharacters - 200 {
+                Text("\(draft.body.count) / \(Limits.bodyCharacters)")
+                    .font(Typeface.caption.monospacedDigit()).foregroundStyle(theme.faintInkColor)
             }
         }
     }
 
-    private func editor(_ theme: SendoffTheme) -> some View {
-        VStack(alignment: .trailing, spacing: 6) {
-            TextField("Write something only \(sendoff?.recipientFirstName ?? "they") will read…", text: $draft.body, axis: .vertical)
-                .font(Typeface.entry)
-                .lineSpacing(5)
-                .foregroundStyle(theme.inkColor)
-                .lineLimit(5...20)
-                .padding(16)
-                .background(theme.raisedPaperColor, in: RoundedRectangle(cornerRadius: theme.radius + 2))
-                .overlay(RoundedRectangle(cornerRadius: theme.radius + 2).stroke(theme.ruleColor))
-                .onChange(of: draft.body) { _, v in if v.count > Limits.bodyCharacters { draft.body = String(v.prefix(Limits.bodyCharacters)) } }
-            Text("\(draft.body.count) / \(Limits.bodyCharacters)")
-                .font(Typeface.caption.monospacedDigit()).foregroundStyle(theme.mutedInkColor.opacity(0.7))
-        }
-    }
-
-    private func attachments(_ s: Sendoff, _ theme: SendoffTheme) -> some View {
+    private func attachments(_ theme: SendoffTheme) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Add to it").font(Typeface.caption).foregroundStyle(theme.mutedInkColor)
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 PhotosPicker(selection: $photoItems, maxSelectionCount: Limits.photosPerEntry, matching: .images) {
-                    attachButton("Photos", "photo.on.rectangle", theme)
+                    attachLabel("Photo", "photo", theme)
                 }
-                Button { showRecorder = true } label: { attachButton("Voice", "waveform", theme) }
+                Button { showRecorder = true } label: { attachLabel("Voice", "mic", theme) }
                     .disabled(draft.media.contains { $0.kind == .voice })
                 PhotosPicker(selection: $videoItem, matching: .videos) {
-                    attachButton("Video", "video", theme)
+                    attachLabel("Video", "video", theme)
                 }
                 .disabled(draft.media.contains { $0.kind == .video })
             }
-            if !draft.media.isEmpty {
-                VStack(spacing: 8) {
-                    ForEach(draft.media) { m in
-                        HStack(spacing: 12) {
-                            Image(systemName: m.kind == .photo ? "photo" : m.kind == .voice ? "waveform" : "video")
-                                .foregroundStyle(theme.sealColor).frame(width: 24)
-                            Text(label(for: m)).font(Typeface.ui).foregroundStyle(theme.inkColor)
-                            Spacer()
-                            Button { draft.media.removeAll { $0.id == m.id } } label: {
-                                Image(systemName: "xmark.circle.fill").foregroundStyle(theme.mutedInkColor)
-                            }
-                        }
-                        .padding(12)
-                        .background(theme.raisedPaperColor, in: RoundedRectangle(cornerRadius: theme.radius))
+            .buttonStyle(.pressable)
+            ForEach(draft.media) { m in
+                HStack(spacing: 12) {
+                    Image(systemName: m.kind == .photo ? "photo" : m.kind == .voice ? "waveform" : "video")
+                        .foregroundStyle(theme.faintInkColor).frame(width: 22)
+                    Text(label(for: m)).font(Typeface.body).foregroundStyle(theme.inkColor)
+                    Spacer()
+                    Button { draft.media.removeAll { $0.id == m.id } } label: {
+                        Image(systemName: "xmark").font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(theme.mutedInkColor)
+                            .frame(width: 44, height: 44)
                     }
+                    .accessibilityLabel("Remove")
                 }
             }
             Text("Video up to 60 seconds, voice up to 2 minutes, up to \(Limits.photosPerEntry) photos.")
-                .font(Typeface.caption).foregroundStyle(theme.mutedInkColor.opacity(0.8))
+                .font(Typeface.caption).foregroundStyle(theme.faintInkColor)
         }
     }
 
-    private func attachButton(_ title: String, _ symbol: String, _ theme: SendoffTheme) -> some View {
-        VStack(spacing: 6) {
-            Image(systemName: symbol).font(.system(size: 20))
-            Text(title).font(Typeface.caption)
-        }
-        .foregroundStyle(theme.inkColor)
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 14)
-        .background(theme.raisedPaperColor, in: RoundedRectangle(cornerRadius: theme.radius + 2))
-        .overlay(RoundedRectangle(cornerRadius: theme.radius + 2).stroke(theme.ruleColor))
+    private func attachLabel(_ title: String, _ symbol: String, _ theme: SendoffTheme) -> some View {
+        PillLabel(title: title, systemImage: symbol, fill: false, small: true)
+            .foregroundStyle(theme.inkColor)
+            .background(theme.controlColor, in: Capsule())
     }
 
     private func label(for m: Media) -> String {
@@ -204,50 +195,60 @@ struct ContributeFlow: View {
     }
 
     private func signature(_ theme: SendoffTheme) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Rule()
+        VStack(alignment: .leading, spacing: 14) {
             Field(label: "Sign it", text: $draft.authorName, placeholder: "Your name")
                 .textContentType(.name)
             Field(label: "How you know them (optional)", text: $draft.authorRelationship, placeholder: "Your 2019 intern")
-        }
-    }
-
-    private func privacy(_ s: Sendoff, _ theme: SendoffTheme) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 10) {
-                Image(systemName: "lock.fill").foregroundStyle(theme.sealColor)
-                Text("Only \(s.recipientFirstName) and \(s.organizerName) will see this. Nobody else who adds to this Sendoff can read it.")
-                    .font(Typeface.caption).foregroundStyle(theme.mutedInkColor)
-            }
             Toggle(isOn: $draft.sharedWithGroup) {
-                Text("Let the others who added read mine too").font(Typeface.caption).foregroundStyle(theme.mutedInkColor)
+                Text("Let the others who added read mine too").font(Typeface.body).foregroundStyle(theme.mutedInkColor)
             }
             .tint(theme.sealColor)
+            .padding(.top, 4)
         }
     }
 
     private func thanks(_ s: Sendoff, _ theme: SendoffTheme) -> some View {
-        VStack(spacing: 18) {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                CircleButton(systemImage: "xmark", label: "Close") { dismiss() }
+                Spacer()
+            }
             Spacer()
             Seal(initial: s.recipientInitial, size: 96)
-            Text("It's in the envelope.").font(Typeface.title).foregroundStyle(theme.inkColor)
+            Text("It's in the envelope.")
+                .font(Typeface.display(40)).displayTracking(40)
+                .foregroundStyle(theme.inkColor)
+                .padding(.top, 28)
             Text("\(s.recipientFirstName) opens it \(s.opensAt.map { "on " + $0.formatted(.dateTime.weekday(.wide).month(.wide).day()) } ?? "when the time comes"). You can come back and change yours until then.")
-                .font(Typeface.ui).foregroundStyle(theme.mutedInkColor).multilineTextAlignment(.center)
+                .font(Typeface.body).foregroundStyle(theme.mutedInkColor)
+                .padding(.top, 12)
+            Spacer()
             Spacer()
             Text("Know someone else leaving? Start a Sendoff of your own.")
-                .font(Typeface.caption).foregroundStyle(theme.mutedInkColor.opacity(0.8))
+                .font(Typeface.caption).foregroundStyle(theme.faintInkColor)
         }
-        .padding(28)
+        .padding(20)
     }
 
     private func closed(_ s: Sendoff, _ theme: SendoffTheme) -> some View {
-        VStack(spacing: 14) {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                CircleButton(systemImage: "xmark", label: "Close") { dismiss() }
+                Spacer()
+            }
             Spacer()
             Seal(initial: s.recipientInitial, size: 80)
-            Text("This one's sealed.").font(Typeface.title).foregroundStyle(theme.inkColor)
-            Text("The Sendoff for \(s.recipientName) is no longer collecting.").font(Typeface.ui).foregroundStyle(theme.mutedInkColor).multilineTextAlignment(.center)
+            Text("This one's sealed.")
+                .font(Typeface.display(40)).displayTracking(40)
+                .foregroundStyle(theme.inkColor)
+                .padding(.top, 28)
+            Text("The Sendoff for \(s.recipientName) is no longer collecting.")
+                .font(Typeface.body).foregroundStyle(theme.mutedInkColor)
+                .padding(.top, 12)
             Spacer()
-        }.padding(28)
+            Spacer()
+        }
+        .padding(20)
     }
 
     // MARK: Media loading
@@ -371,49 +372,55 @@ struct VoiceRecorderSheet: View {
     var body: some View {
         ZStack {
             Paper()
-            VStack(spacing: 28) {
-                Stamp(text: "Voice note")
+            VStack(spacing: 0) {
+                Eyebrow(text: "Voice note")
                 Text(recorder.isRecording ? "Recording" : recorder.fileURL == nil ? "Say it out loud" : "Got it")
-                    .font(Typeface.title).foregroundStyle(theme.inkColor)
-                Text(time).font(.system(size: 44, weight: .light, design: .serif).monospacedDigit()).foregroundStyle(theme.inkColor)
+                    .font(Typeface.display(40)).displayTracking(40)
+                    .foregroundStyle(theme.inkColor)
+                    .padding(.top, 10)
+                Text(time).font(.system(size: 48, weight: .light).monospacedDigit()).foregroundStyle(theme.inkColor)
+                    .padding(.top, 8)
 
+                Spacer()
                 Circle()
-                    .fill(theme.sealColor.opacity(0.18))
-                    .frame(width: 160 + CGFloat(recorder.level) * 60, height: 160 + CGFloat(recorder.level) * 60)
+                    .fill(theme.controlColor)
+                    .frame(width: 150 + CGFloat(recorder.level) * 70, height: 150 + CGFloat(recorder.level) * 70)
                     .overlay(
                         Button {
                             if recorder.isRecording { recorder.stop() } else { Task { await begin() } }
                         } label: {
                             Image(systemName: recorder.isRecording ? "stop.fill" : "mic.fill")
-                                .font(.system(size: 34, weight: .bold))
+                                .font(.system(size: 30, weight: .semibold))
                                 .foregroundStyle(theme.onSealColor)
-                                .frame(width: 110, height: 110)
+                                .frame(width: 104, height: 104)
                                 .background(theme.sealColor, in: Circle())
                         }
                         .buttonStyle(.pressable)
+                        .accessibilityLabel(recorder.isRecording ? "Stop recording" : "Start recording")
                     )
                     .animation(.easeOut(duration: 0.12), value: recorder.level)
-
-                Text("Up to two minutes. \(Int(Limits.voiceSeconds - recorder.elapsed))s left.")
-                    .font(Typeface.caption).foregroundStyle(theme.mutedInkColor)
-
-                if denied {
-                    Text("Microphone access is off. You can turn it on in Settings.").font(Typeface.caption).foregroundStyle(theme.sealColor)
-                }
-
                 Spacer()
 
+                Text("Up to two minutes. \(Int(Limits.voiceSeconds - recorder.elapsed))s left.")
+                    .font(Typeface.caption).foregroundStyle(theme.faintInkColor)
+                if denied {
+                    Text("Microphone access is off. You can turn it on in Settings.").font(Typeface.caption).foregroundStyle(theme.inkColor)
+                        .padding(.top, 8)
+                }
+
                 if !recorder.isRecording, let url = recorder.fileURL {
-                    HStack(spacing: 12) {
-                        QuietButton(title: "Again") { recorder.discard() }
-                        SealButton(title: "Use it") {
+                    HStack(spacing: 10) {
+                        SecondaryButton(title: "Again") { recorder.discard() }
+                        PrimaryButton(title: "Use it") {
                             onSave(Media(id: UUID(), kind: .voice, url: nil, posterURL: nil, durationSeconds: recorder.elapsed, transcript: nil, width: nil, height: nil, localURL: url))
                             dismiss()
                         }
                     }
+                    .padding(.top, 20)
                 }
             }
-            .padding(28)
+            .padding(20)
+            .padding(.top, 20)
         }
         .presentationDetents([.large])
         .onDisappear { if recorder.isRecording { recorder.stop() } }

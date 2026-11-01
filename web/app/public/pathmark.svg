@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- The Path in warm white on near-black. Matches design/v2 (Evening). -->
+  <rect width="1024" height="1024" fill="#0E0E0D"/>
+  <g transform="translate(220 176) scale(0.58)">
+    <path fill="#F3F1EC" d="
+      M 100 1024
+      C 190 850, 480 800, 585 680
+      C 680 570, 590 475, 470 405
+      C 395 360, 430 290, 610 232
+      C 720 197, 820 170, 905 148
+      C 845 190, 760 220, 690 248
+      C 560 302, 575 350, 650 392
+      C 820 480, 830 630, 720 740
+      C 630 830, 625 920, 650 1024
+      Z"/>
+  </g>
+</svg>

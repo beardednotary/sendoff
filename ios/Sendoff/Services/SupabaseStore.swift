@@ -2,6 +2,22 @@ import Foundation
 import Observation
 import Supabase
 
+/// Paths in the `uploads` bucket. Ids are lowercase: the storage policies match them with
+/// `^[0-9a-f-]{36}$` (0002_web.sql) and Swift prints UUIDs in uppercase.
+enum StoragePath {
+    /// {sendoff_id}/cover/{file}.jpg, the only shape `sendoffs_cover_is_own` (0005) accepts.
+    static func cover(_ sendoff: UUID, file: UUID = UUID()) -> String {
+        "\(id(sendoff))/cover/\(id(file)).jpg"
+    }
+
+    /// {sendoff_id}/{contribution_id}/{media_id}.{ext}
+    static func media(_ sendoff: UUID, _ contribution: UUID, _ media: UUID, ext: String) -> String {
+        "\(id(sendoff))/\(id(contribution))/\(id(media)).\(ext)"
+    }
+
+    private static func id(_ u: UUID) -> String { u.uuidString.lowercased() }
+}
+
 /// The real store. Mirrors `supabase/migrations/0001_init.sql`.
 ///
 /// Configure with `SUPABASE_URL` and `SUPABASE_ANON_KEY` in `Config/Local.xcconfig`
@@ -12,6 +28,7 @@ final class SupabaseStore: SendoffStore {
 
     private(set) var currentUserID: UUID?
     private(set) var currentUserName: String = ""
+    private(set) var isSignedIn = false
 
     init(client: SupabaseClient) {
         self.client = client
@@ -29,8 +46,39 @@ final class SupabaseStore: SendoffStore {
     private func refreshSession() async {
         if let session = try? await client.auth.session {
             currentUserID = session.user.id
-            currentUserName = (session.user.userMetadata["display_name"]?.stringValue) ?? session.user.email ?? ""
+            currentUserName = (session.user.userMetadata["display_name"]?.stringValue) ?? ""
+            isSignedIn = !session.user.isAnonymous
+        } else {
+            currentUserID = nil
+            currentUserName = ""
+            isSignedIn = false
         }
+    }
+
+    // MARK: Organizer account
+
+    func signInWithApple(idToken: String, nonce: String, name: String?) async throws -> Bool {
+        try await client.auth.signInWithIdToken(credentials: OpenIDConnectCredentials(provider: .apple, idToken: idToken, nonce: nonce))
+        await refreshSession()
+        if let name, !name.trimmingCharacters(in: .whitespaces).isEmpty {
+            try await setDisplayName(name)
+        }
+        return !currentUserName.isEmpty
+    }
+
+    /// Apple shares the name once. It goes into the auth metadata (read back on every launch) and
+    /// the profile row, which is what contributors and the recipient see as the organizer.
+    func setDisplayName(_ name: String) async throws {
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let uid = currentUserID, !name.isEmpty else { return }
+        try await client.auth.update(user: UserAttributes(data: ["display_name": .string(name)]))
+        try await client.from("profiles").update(["display_name": name]).eq("id", value: uid).execute()
+        currentUserName = name
+    }
+
+    func signOut() async throws {
+        try await client.auth.signOut()
+        await refreshSession()
     }
 
     /// Contributors and recipients get an anonymous session so RLS has a `auth.uid()` to work with.
@@ -64,14 +112,18 @@ final class SupabaseStore: SendoffStore {
         var contributor_limit: Int
         var contributor_goal: Int?
         var created_at: Date
+        // Only present on rows the organizer reads (RLS "organizer full access").
+        var contribute_token: String?
+        var recipient_key: String?
 
-        func model(organizerName: String) -> Sendoff {
+        func model(organizerName: String, photo: URL? = nil) -> Sendoff {
             Sendoff(id: id, slug: slug, organizerID: organizer_id, organizerName: organizerName,
-                    occasion: occasion, recipientName: recipient_name, recipientPhotoURL: nil,
+                    occasion: occasion, recipientName: recipient_name, recipientPhotoURL: photo,
                     fromLine: from_line, coverMessage: cover_message, themeID: theme_id,
                     musicTrackID: music_track_id, state: state, moderation: moderation, reveal: reveal,
                     closesAt: closes_at, opensAt: opens_at, openedAt: opened_at, plan: plan,
-                    contributorLimit: contributor_limit, createdAt: created_at, contributorGoal: contributor_goal)
+                    contributorLimit: contributor_limit, createdAt: created_at, contributorGoal: contributor_goal,
+                    contributeToken: contribute_token, recipientKey: recipient_key)
         }
     }
 
@@ -90,16 +142,19 @@ final class SupabaseStore: SendoffStore {
         var created_at: Date
         var media: [MediaRow]?
 
-        func model() -> Contribution {
+        func model(urls: [String: URL] = [:], media override: [MediaRow]? = nil) -> Contribution {
             Contribution(id: id, sendoffID: sendoff_id, authorID: author_id, authorName: author_name,
                          authorRelationship: author_relationship, body: body, promptUsed: prompt_used,
-                         status: status, sharedWithGroup: shared_with_group, pinned: pinned,
-                         sortOrder: sort_order, media: (media ?? []).map { $0.model() }, createdAt: created_at)
+                         status: status, sharedWithGroup: shared_with_group, pinned: pinned, sortOrder: sort_order,
+                         media: (override ?? media ?? []).sorted { ($0.sort_order ?? 0) < ($1.sort_order ?? 0) }.map { $0.model(urls: urls) },
+                         createdAt: created_at)
         }
     }
 
     private struct MediaRow: Codable {
         var id: UUID
+        var contribution_id: UUID?
+        var sort_order: Int?
         var kind: MediaKind
         var storage_path: String
         var processed_path: String?
@@ -109,25 +164,74 @@ final class SupabaseStore: SendoffStore {
         var width: Int?
         var height: Int?
 
-        func model() -> Media {
-            // Signed URLs are resolved lazily by MediaResolver; keep paths here.
-            Media(id: id, kind: kind, url: nil, posterURL: nil, durationSeconds: duration_seconds,
-                  transcript: transcript, width: width, height: height, localURL: nil)
+        /// Media is private: `urls` maps storage paths to signed URLs (see `signedMedia`).
+        func model(urls: [String: URL] = [:]) -> Media {
+            Media(id: id, kind: kind, url: urls[storage_path], posterURL: poster_path.flatMap { urls[$0] },
+                  durationSeconds: duration_seconds, transcript: transcript, width: width, height: height, localURL: nil)
         }
     }
 
     // MARK: Organizer
 
     func mySendoffs() async throws -> [Sendoff] {
-        guard let uid = currentUserID else { return [] }
+        if currentUserID == nil { await refreshSession() }
+        guard isSignedIn, let uid = currentUserID else { return [] }
         let rows: [SendoffRow] = try await client.from("sendoffs")
             .select().eq("organizer_id", value: uid).order("created_at", ascending: false)
             .execute().value
-        return rows.map { $0.model(organizerName: currentUserName) }
+        let photos = await signedCovers(rows.compactMap(\.recipient_photo_path))
+        return rows.map { $0.model(organizerName: currentUserName, photo: $0.recipient_photo_path.flatMap { photos[$0] }) }
+    }
+
+    /// Covers live in the private `uploads` bucket; the organizer's read policy lets them sign
+    /// their own. Signed for a day, which outlasts any session in the library.
+    private func signedCovers(_ paths: [String]) async -> [String: URL] {
+        await signed(paths, in: "uploads")
+    }
+
+    private func signed(_ paths: [String], in bucket: String) async -> [String: URL] {
+        guard !paths.isEmpty,
+              let results = try? await client.storage.from(bucket).createSignedURLs(paths: paths, expiresIn: 86_400)
+        else { return [:] }
+        var urls: [String: URL] = [:]
+        for r in results { if let u = r.signedURL { urls[r.path] = u } }
+        return urls
+    }
+
+    /// Uploads the cover to {sendoff_id}/cover/ and records its path. A failed upload leaves the
+    /// Sendoff without a photo rather than failing a creation that already happened.
+    private func attachCover(_ local: URL, to sendoffID: UUID) async -> URL? {
+        guard let data = try? Data(contentsOf: local) else { return nil }
+        let path = StoragePath.cover(sendoffID)
+        do {
+            try await client.storage.from("uploads").upload(path, data: data, options: FileOptions(contentType: "image/jpeg"))
+            try await client.from("sendoffs").update(["recipient_photo_path": path]).eq("id", value: sendoffID).execute()
+            return local
+        } catch {
+            return nil
+        }
+    }
+
+    func setCover(_ jpeg: URL, for sendoffID: UUID) async throws {
+        let data = try Data(contentsOf: jpeg)
+        struct Row: Decodable { var recipient_photo_path: String? }
+        let before: Row? = try? await client.from("sendoffs").select("recipient_photo_path")
+            .eq("id", value: sendoffID).single().execute().value
+        let path = StoragePath.cover(sendoffID)
+        let uploads = client.storage.from("uploads")
+        try await uploads.upload(path, data: data, options: FileOptions(contentType: "image/jpeg"))
+        // Once it has opened the row no longer changes, and RLS turns the update into a no-op.
+        let after: [Row] = try await client.from("sendoffs").update(["recipient_photo_path": path])
+            .eq("id", value: sendoffID).select("recipient_photo_path").execute().value
+        guard after.first?.recipient_photo_path == path else {
+            _ = try? await uploads.remove(paths: [path])
+            throw StoreError.notAllowed
+        }
+        if let old = before?.recipient_photo_path, old != path { _ = try? await uploads.remove(paths: [old]) }
     }
 
     func create(_ d: SendoffDraft) async throws -> Sendoff {
-        guard let uid = currentUserID else { throw StoreError.notAllowed }
+        guard isSignedIn, let uid = currentUserID else { throw StoreError.notAllowed }
         struct Insert: Encodable {
             var slug: String; var organizer_id: UUID; var occasion: Occasion; var recipient_name: String
             var from_line: String?; var cover_message: String?; var theme_id: ThemeID; var music_track_id: String?
@@ -141,7 +245,8 @@ final class SupabaseStore: SendoffStore {
                          moderation: d.moderation, reveal: d.reveal, closes_at: d.closesAt,
                          opens_at: d.reveal == .onDate ? d.opensAt : nil, contributor_goal: d.goal)
         let row: SendoffRow = try await client.from("sendoffs").insert(ins).select().single().execute().value
-        return row.model(organizerName: currentUserName)
+        let photo: URL? = if let local = d.recipientPhoto { await attachCover(local, to: row.id) } else { nil }
+        return row.model(organizerName: currentUserName, photo: photo)
     }
 
     func update(_ s: Sendoff) async throws -> Sendoff {
@@ -155,7 +260,7 @@ final class SupabaseStore: SendoffStore {
                       reveal: s.reveal, closes_at: s.closesAt, opens_at: s.opensAt)
         let row: SendoffRow = try await client.from("sendoffs").update(p).eq("id", value: s.id)
             .select().single().execute().value
-        return row.model(organizerName: currentUserName)
+        return row.model(organizerName: currentUserName, photo: s.recipientPhotoURL)
     }
 
     func setState(_ id: UUID, _ state: SendoffState) async throws {
@@ -165,7 +270,16 @@ final class SupabaseStore: SendoffStore {
     func contributions(for sendoffID: UUID) async throws -> [Contribution] {
         let rows: [ContributionRow] = try await client.from("contributions")
             .select("*, media(*)").eq("sendoff_id", value: sendoffID).execute().value
-        return rows.map { $0.model() }.sorted(by: Contribution.revealOrder)
+        let urls = await signedMedia(rows.flatMap { $0.media ?? [] })
+        return rows.map { $0.model(urls: urls) }.sorted(by: Contribution.revealOrder)
+    }
+
+    /// The organizer reads `uploads` and `processed` under their Sendoff (0002_web.sql), so they
+    /// sign their own: originals in `uploads`, posters in `processed`.
+    private func signedMedia(_ media: [MediaRow]) async -> [String: URL] {
+        let originals = await signed(media.map(\.storage_path), in: "uploads")
+        let posters = await signed(media.compactMap(\.poster_path), in: "processed")
+        return originals.merging(posters) { a, _ in a }
     }
 
     func setStatus(_ contributionID: UUID, _ status: ContributionStatus) async throws {
@@ -228,7 +342,7 @@ final class SupabaseStore: SendoffStore {
         for (i, m) in d.media.enumerated() {
             guard let local = m.localURL else { continue }
             let data = try Data(contentsOf: local)
-            let path = "\(sendoffID)/\(row.id)/\(m.id).\(local.pathExtension)"
+            let path = StoragePath.media(sendoffID, row.id, m.id, ext: local.pathExtension)
             try await client.storage.from("uploads").upload(path, data: data)
             struct MIns: Encodable {
                 var contribution_id: UUID; var kind: MediaKind; var storage_path: String
@@ -244,16 +358,65 @@ final class SupabaseStore: SendoffStore {
 
     // MARK: Recipient
 
-    func revealContributions(for sendoffID: UUID) async throws -> [Contribution] {
-        let rows: [ContributionRow] = try await client.from("contributions")
-            .select("*, media(*)").eq("sendoff_id", value: sendoffID).eq("status", value: "approved")
-            .execute().value
-        return rows.map { $0.model() }.sorted(by: Contribution.revealOrder)
+    /// What `sendoff_reveal` and `sendoff_open` return (0005_cover_photo.sql).
+    private struct RevealRow: Codable {
+        var id: UUID; var recipient_name: String; var occasion: Occasion; var from_line: String?
+        var cover_message: String?; var theme_id: ThemeID; var music_track_id: String?
+        var state: SendoffState; var reveal: RevealPolicy; var opens_at: Date?
+        var organizer_name: String?; var contributor_count: Int?; var plan: Plan?
+        var recipient_photo_path: String?
     }
 
-    func markOpened(_ sendoffID: UUID) async throws {
-        try await client.from("sendoffs").update(["opened_at": Date.now.ISO8601Format()])
-            .eq("id", value: sendoffID).execute()
+    func reveal(slug: String, key: String) async throws -> Sendoff {
+        try await ensureSession()
+        let rows: [RevealRow] = try await client.rpc("sendoff_reveal", params: ["p_slug": slug, "p_key": key])
+            .execute().value
+        guard let r = rows.first else { throw StoreError.notFound }
+        return await revealModel(r, slug: slug, key: key)
+    }
+
+    func open(slug: String, key: String) async throws -> Sendoff {
+        try await ensureSession()
+        let rows: [RevealRow] = try await client.rpc("sendoff_open", params: ["p_slug": slug, "p_key": key])
+            .execute().value
+        guard let r = rows.first else { throw StoreError.sealed }
+        return await revealModel(r, slug: slug, key: key)
+    }
+
+    func revealContributions(slug: String, key: String) async throws -> [Contribution] {
+        try await ensureSession()
+        let params = ["p_slug": slug, "p_key": key]
+        async let entries: [ContributionRow] = client.rpc("reveal_contributions", params: params).execute().value
+        async let files: [MediaRow] = client.rpc("reveal_media", params: params).execute().value
+        let (rows, media) = try await (entries, files)
+        let urls = await signForRecipient(slug: slug, key: key,
+                                          paths: media.flatMap { [$0.storage_path, $0.poster_path].compactMap { $0 } })
+        let byEntry = Dictionary(grouping: media) { $0.contribution_id }
+        return rows.map { $0.model(urls: urls, media: byEntry[$0.id] ?? []) }.sorted(by: Contribution.revealOrder)
+    }
+
+    private func revealModel(_ r: RevealRow, slug: String, key: String) async -> Sendoff {
+        var photo: URL?
+        if let path = r.recipient_photo_path { photo = await signForRecipient(slug: slug, key: key, paths: [path])[path] }
+        var s = Sendoff(id: r.id, slug: slug, organizerID: UUID(), organizerName: r.organizer_name ?? "the organizer",
+                        occasion: r.occasion, recipientName: r.recipient_name, recipientPhotoURL: photo,
+                        fromLine: r.from_line, coverMessage: r.cover_message, themeID: r.theme_id,
+                        musicTrackID: r.music_track_id, state: r.state, moderation: .trust, reveal: r.reveal,
+                        closesAt: nil, opensAt: r.opens_at, openedAt: nil, plan: r.plan ?? .free,
+                        contributorLimit: 0, createdAt: .now, recipientKey: key)
+        s.contributorCount = r.contributor_count
+        return s
+    }
+
+    /// The recipient holds no storage grant; `sign-media` checks the key and signs for them.
+    private func signForRecipient(slug: String, key: String, paths: [String]) async -> [String: URL] {
+        guard !paths.isEmpty else { return [:] }
+        struct Body: Encodable { let slug: String; let key: String; let paths: [String] }
+        struct Reply: Decodable { let urls: [String: String] }
+        guard let reply: Reply = try? await client.functions.invoke(
+            "sign-media", options: FunctionInvokeOptions(body: Body(slug: slug, key: key, paths: paths)))
+        else { return [:] }
+        return reply.urls.compactMapValues(URL.init(string:))
     }
 
     // MARK: Catalog
@@ -267,5 +430,57 @@ final class SupabaseStore: SendoffStore {
         return rows.map { MusicTrack(id: $0.id, title: $0.title, artist: $0.artist, durationSeconds: $0.duration_seconds,
                                      storagePath: $0.storage_path, appleMusicID: $0.apple_music_id,
                                      premium: $0.premium, mood: $0.mood) }
+    }
+
+    // MARK: Payments (mirrors 0003_payments.sql)
+
+    private struct EntitlementRow: Codable {
+        var id: UUID; var product_id: String; var source: String; var external_id: String?
+        var consumed_by: UUID?; var expires_at: Date?; var created_at: Date
+
+        func model() -> Entitlement {
+            Entitlement(id: id, productID: product_id, source: source, externalID: external_id,
+                        consumedBy: consumed_by, expiresAt: expires_at, createdAt: created_at)
+        }
+    }
+
+    func entitlements() async throws -> [Entitlement] {
+        guard let uid = currentUserID else { return [] }
+        let rows: [EntitlementRow] = try await client.from("entitlements").select()
+            .eq("user_id", value: uid).order("created_at").execute().value
+        return rows.map { $0.model() }
+    }
+
+    func recordPurchase(_ product: ProductID, transactionID: String) async throws -> [Entitlement] {
+        guard let uid = currentUserID else { throw StoreError.notAllowed }
+        struct Insert: Encodable { var user_id: UUID; var product_id: String; var source: String; var external_id: String }
+        if product.themeID != nil {
+            // A look bought on its own: one row, never consumed, keyed by the original transaction
+            // so restores and other devices add nothing. Only for a real account: the row decides
+            // what this organizer's recipients see, and an anonymous id would strand it.
+            guard isSignedIn else { return [] }
+            let row = Insert(user_id: uid, product_id: product.rawValue, source: "storekit", external_id: transactionID)
+            try await client.from("entitlements").upsert([row], onConflict: "external_id", ignoreDuplicates: true).execute()
+            return []
+        }
+        guard let plan = product.plan, let creditProduct = ProductID.credit(for: plan) else { return [] }
+        let rows = (0..<product.credits).map { i in
+            Insert(user_id: uid, product_id: creditProduct.rawValue, source: "storekit",
+                   external_id: product.credits == 1 ? transactionID : "\(transactionID)#\(i)")
+        }
+        // `external_id` is unique, so replaying a transaction (app relaunch before finish()) is a no-op.
+        try await client.from("entitlements").upsert(rows, onConflict: "external_id", ignoreDuplicates: true).execute()
+        let saved: [EntitlementRow] = try await client.from("entitlements").select()
+            .eq("user_id", value: uid).like("external_id", pattern: "\(transactionID)%").execute().value
+        return saved.map { $0.model() }
+    }
+
+    func redeem(_ entitlementID: UUID, for sendoffID: UUID) async throws -> Sendoff {
+        let rows: [SendoffRow] = try await client
+            .rpc("redeem_entitlement", params: ["p_entitlement": entitlementID.uuidString, "p_sendoff": sendoffID.uuidString])
+            .execute().value
+        guard let row = rows.first else { throw StoreError.noCredit }
+        let photos = await signedCovers([row.recipient_photo_path].compactMap { $0 })
+        return row.model(organizerName: currentUserName, photo: row.recipient_photo_path.flatMap { photos[$0] })
     }
 }

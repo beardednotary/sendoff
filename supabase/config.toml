@@ -1,0 +1,31 @@
+# Supabase CLI config. Only what Sendoff needs is declared: `supabase config push` leaves every
+# property this file does not mention as it is on the hosted project. supabase/setup.sh pushes it.
+project_id = "sendoff"
+
+[auth]
+# Contributors and recipients never make an account; the app and the web page sign in
+# anonymously so row level security has a user id to work with.
+site_url = "https://sendoffapp.com"
+additional_redirect_urls = ["https://sendoffapp.com/**", "sendoff://**"]
+enable_signup = true
+enable_anonymous_sign_ins = true
+
+[auth.email]
+enable_signup = true
+enable_confirmations = false
+
+# The recipient's page calls sign-media with the recipient key, before any session exists.
+[functions.sign-media]
+verify_jwt = false
+
+# Called only by the media trigger (0004_media_webhook.sql) with the service role key.
+[functions.process-media]
+verify_jwt = true
+
+# Organizers sign in with Apple in the iPhone app. The native flow sends Apple's ID token
+# straight to Supabase, so only the app's bundle ID is needed; no secret (that is for the web
+# OAuth flow, which Sendoff does not use).
+[auth.external.apple]
+enabled = true
+client_id = "com.dahvio.sendoff"
+secret = ""
