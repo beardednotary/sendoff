@@ -24,10 +24,10 @@ export interface Faq { q: string; a: string }
 export const PersonalPrices: { name: string; price: string; detail: string }[] = [
   { name: 'Free', price: '$0', detail: 'Up to 10 entries.' },
   { name: 'Sendoff', price: '$8.99', detail: 'Up to 100 entries.' },
-  { name: 'Sendoff Plus', price: '$14.99', detail: 'Unlimited entries, every paid look, and a song from Apple Music.' },
+  { name: 'Sendoff Plus', price: '$14.99', detail: 'Unlimited entries, every Plus look, and a song from Apple Music.' },
   { name: 'Pack of 5', price: '$34.99', detail: 'Five Sendoffs bought ahead, $7 each, for people who run a few a year.' },
   { name: 'Pack of 10', price: '$59.99', detail: 'Ten at $6 each, for the office manager who runs them all.' },
-  { name: 'A paid look', price: '$4.99', detail: 'Gold Leaf, Darkroom or Field Day, yours for every Sendoff.' },
+  { name: 'A Plus look', price: '$4.99', detail: 'Gold Leaf, Darkroom or Field Day, yours for every Sendoff.' },
 ];
 
 export interface Tier {
@@ -50,7 +50,7 @@ export const Tiers: Tier[] = [
 ];
 
 export const TeamIncludes: [string, string][] = [
-  ['Unlimited Sendoffs at the Plus level', 'Unlimited entries in each one, every paid look, and a song from Apple Music.'],
+  ['Unlimited Sendoffs at the Plus level', 'Unlimited entries in each one, every Plus look, and a song from Apple Music.'],
   ['Your logo on the cover', 'Every Sendoff your team starts carries your name and logo.'],
   ['A roster', 'Anyone on it can start a Sendoff from the iPhone app, with nothing to buy or expense.'],
   ['Admins', 'They see every Sendoff your team has running and who started it. What people wrote stays between the organizer and the person it is for.'],
