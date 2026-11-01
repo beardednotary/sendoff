@@ -7,6 +7,7 @@ struct CreateFlow: View {
     @Environment(\.store) private var store
     @Environment(\.dismiss) private var dismiss
     @Environment(\.theme) private var theme
+    @Environment(PurchaseManager.self) private var purchases
     var onCreated: (Sendoff) -> Void
 
     @State private var draft = SendoffDraft()
@@ -189,6 +190,17 @@ struct CreateFlow: View {
         }
     }
 
+    /// Plus looks are free to try; this says what happens if nobody pays for one.
+    private var plusLookNote: some View {
+        let look = ThemeCatalog.theme(draft.themeID)
+        let instead = ThemeCatalog.theme(draft.themeID.freeAlternative)
+        let who = draft.recipientName.isEmpty ? "they" : Sendoff.callName(draft.recipientName)
+        return Text("\(look.name) is free to try. Before it opens, add Sendoff Plus or get \(look.name) on its own, or \(who) will see \(instead.name).")
+            .font(Typeface.caption).foregroundStyle(theme.mutedInkColor)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.top, 12)
+    }
+
     private var lookStep: some View {
         VStack(alignment: .leading, spacing: 0) {
             heading("How it looks", "Pick the look\nand the music.")
@@ -204,13 +216,14 @@ struct CreateFlow: View {
                         .frame(width: 44, height: 44)
                         .overlay(Circle().stroke(theme.ruleColor))
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(t.premium ? "\(t.name) · Plus" : t.name).font(Typeface.bodyStrong).foregroundStyle(theme.inkColor)
+                            Text(purchases.owns(t.id) ? t.name : "\(t.name) · Plus").font(Typeface.bodyStrong).foregroundStyle(theme.inkColor)
                             Text(t.tagline).font(Typeface.caption).foregroundStyle(theme.faintInkColor)
                         }
                     }
                     if t.id != ThemeCatalog.all.last?.id { Rule() }
                 }
             }
+            if !purchases.owns(draft.themeID) { plusLookNote }
 
             Eyebrow(text: "Music when it opens").padding(.top, 30)
             VStack(spacing: 0) {

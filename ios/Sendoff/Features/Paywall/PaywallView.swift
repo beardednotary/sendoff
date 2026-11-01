@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// Shown after entries have arrived, never before. One purchase per Sendoff; contributors and
-/// recipients never pay. Copy follows docs/PRODUCT.md ("Make it something they can keep").
+/// Shown after entries have arrived, or from the note about an unpaid Plus look; never as a gate.
+/// One purchase per Sendoff; contributors and recipients never pay. Copy follows docs/PRODUCT.md
+/// ("Make it something they can keep").
 struct PaywallView: View {
     @Environment(\.theme) private var theme
     @Environment(PurchaseManager.self) private var purchases
@@ -12,6 +13,7 @@ struct PaywallView: View {
     var onUpgraded: (Sendoff) -> Void
 
     @State private var busy: Plan?
+    @State private var buyingLook = false
     @State private var error: String?
 
     private var first: String { sendoff.recipientFirstName }
@@ -37,20 +39,20 @@ struct PaywallView: View {
                         tier(.single, bullets: [
                             "Up to \(Plan.single.entryLimit) entries",
                             "No Sendoff line on the last page",
-                            "Scheduled reveal and the three included papers",
+                            "Scheduled reveal and the three included looks",
                             "Save as PDF",
                         ])
 
                         tier(.plus, bullets: [
                             "Unlimited entries",
-                            chosenTheme.premium ? "All premium papers, including \(chosenTheme.name)" : "All premium papers",
+                            chosenTheme.premium ? "All Plus looks, including \(chosenTheme.name)" : "All Plus looks",
                             "Link your own music (Apple Music)",
                             "Slideshow mode for the party",
                         ])
 
-                        if chosenTheme.premium, !purchases.owns(sendoff.themeID), sendoff.plan < .plus {
-                            Text("\(chosenTheme.name) is a premium paper. It comes with Plus, or on its own\(purchases.price(ProductID.theme(sendoff.themeID) ?? .themeGoldLeaf).map { " for \($0)" } ?? "").")
-                                .font(Typeface.caption).foregroundStyle(theme.mutedInkColor)
+                        if chosenTheme.premium, !purchases.owns(sendoff.themeID), sendoff.plan < .plus,
+                           let lookProduct = ProductID.theme(sendoff.themeID) {
+                            lookAlone(lookProduct)
                         }
 
                         Rule()
@@ -89,6 +91,38 @@ struct PaywallView: View {
         }
     }
 
+    /// The look on its own: yours for every Sendoff, without Plus.
+    private func lookAlone(_ product: ProductID) -> some View {
+        let price = purchases.price(product)
+        return VStack(alignment: .leading, spacing: 12) {
+            Text("\(chosenTheme.name) is a Plus look. It comes with Plus, or on its own\(price.map { " for \($0)" } ?? ""), yours for every Sendoff. Without either, \(first) sees \(ThemeCatalog.theme(sendoff.themeID.freeAlternative).name).")
+                .font(Typeface.caption).foregroundStyle(theme.mutedInkColor)
+                .fixedSize(horizontal: false, vertical: true)
+            if buyingLook {
+                ProgressView().tint(theme.inkColor).frame(maxWidth: .infinity).frame(height: 50)
+            } else {
+                SecondaryButton(title: "Get \(chosenTheme.name)\(price.map { ", \($0)" } ?? "")", fill: false) {
+                    Task { await buyLook(product) }
+                }
+                .disabled(busy != nil || price == nil)
+            }
+        }
+    }
+
+    private func buyLook(_ product: ProductID) async {
+        buyingLook = true
+        defer { buyingLook = false }
+        do {
+            switch try await purchases.buy(product) {
+            case .completed: dismiss()
+            case .pending: error = PurchaseError.pending.localizedDescription
+            case .cancelled: break
+            }
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
     // MARK: Tier card
 
     private func tier(_ plan: Plan, bullets: [String]) -> some View {
@@ -124,7 +158,7 @@ struct PaywallView: View {
                     ProgressView().tint(theme.inkColor).frame(maxWidth: .infinity).frame(height: 50)
                 } else {
                     PrimaryButton(title: title) { Task { await choose(plan) } }
-                        .disabled(busy != nil || (price == nil && credit == nil))
+                        .disabled(busy != nil || buyingLook || (price == nil && credit == nil))
                 }
             }
         }

@@ -158,4 +158,24 @@ final class ModelTests: XCTestCase {
     func testOccasionPromptsExist() {
         for o in Occasion.allCases { XCTAssertGreaterThanOrEqual(o.prompts.count, 3, o.title) }
     }
+
+    func testEveryPlusLookFallsBackToAnIncludedOne() {
+        for t in ThemeCatalog.premium { XCTAssertFalse(ThemeCatalog.theme(t.id.freeAlternative).premium, t.name) }
+        for t in ThemeCatalog.included { XCTAssertEqual(t.id.freeAlternative, t.id, t.name) }
+    }
+
+    @MainActor
+    func testRecipientSeesAPlusLookOnlyOncePaidFor() {
+        let purchases = PurchaseManager(store: MockStore())
+        var s = MockStore.sampleSendoff
+        s.themeID = .darkroom
+        s.plan = .free
+        XCTAssertFalse(purchases.covers(s))
+        XCTAssertEqual(purchases.look(for: s), .midnightToast, "unpaid Darkroom shows as Evening")
+        s.plan = .plus
+        XCTAssertEqual(purchases.look(for: s), .darkroom, "Plus covers every Plus look")
+        s.themeID = .letterpress
+        s.plan = .free
+        XCTAssertTrue(purchases.covers(s), "included looks are always covered")
+    }
 }

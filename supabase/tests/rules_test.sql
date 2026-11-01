@@ -274,6 +274,54 @@ do $$ begin
   assert (select count(*) from reveal_contributions('mr-patel', current_setting('test.key2'))) = 0, 'pending entries never reach the recipient';
 end $$;
 
+-- Paid looks: free to try, but the recipient sees the free counterpart until it is paid for
+select test_as('aaaaaaaa-0000-0000-0000-000000000001') as _ \gset
+insert into sendoffs (slug, organizer_id, occasion, recipient_name, state, theme_id, reveal)
+values ('jo-moves', 'aaaaaaaa-0000-0000-0000-000000000001', 'new_job', 'Jo Lindqvist', 'collecting', 'darkroom', 'manual'),
+       ('ana-g', 'aaaaaaaa-0000-0000-0000-000000000001', 'graduation', 'Ana Gomez', 'collecting', 'gold_leaf', 'manual');
+do $$
+declare t text; k text; k2 text;
+begin
+  select contribute_token, recipient_key into t, k from sendoffs where slug = 'jo-moves';
+  select recipient_key into k2 from sendoffs where slug = 'ana-g';
+  perform set_config('test.token3', t, true); perform set_config('test.key3', k, true); perform set_config('test.key4', k2, true);
+  assert (select theme_id from sendoffs where slug = 'jo-moves') = 'darkroom', 'the organizer keeps the look they chose';
+  begin
+    perform sendoff_look((select id from sendoffs where slug = 'jo-moves'));
+    raise exception 'sendoff_look is callable by clients';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+
+-- A contributor's own Darkroom purchase does not pay for the organizer's Sendoff
+select test_as('bbbbbbbb-0000-0000-0000-000000000002') as _ \gset
+insert into entitlements (user_id, product_id, source, external_id)
+values ('bbbbbbbb-0000-0000-0000-000000000002', 'theme.darkroom', 'storekit', 'tx-2001');
+do $$ begin
+  assert (select theme_id from sendoff_public('jo-moves', current_setting('test.token3'))) = 'darkroom', 'contributors see the chosen look while collecting';
+end $$;
+
+select test_as('dddddddd-0000-0000-0000-000000000004') as _ \gset
+do $$ begin
+  assert (select theme_id from sendoff_reveal('jo-moves', current_setting('test.key3'))) = 'midnight_toast', 'unpaid Darkroom reaches the recipient as Evening';
+  assert (select theme_id from sendoff_reveal('ana-g', current_setting('test.key4'))) = 'letterpress', 'unpaid Gold Leaf reaches the recipient as Paper';
+end $$;
+
+-- The organizer buys Darkroom on its own; Plus covers Gold Leaf on its Sendoff
+select test_as('aaaaaaaa-0000-0000-0000-000000000001') as _ \gset
+insert into entitlements (user_id, product_id, source, external_id)
+values ('aaaaaaaa-0000-0000-0000-000000000001', 'theme.darkroom', 'storekit', 'tx-2000');
+select test_reset() as _ \gset
+update sendoffs set plan = 'plus' where slug = 'ana-g';
+update sendoffs set state = 'open' where slug = 'jo-moves';
+
+select test_as('dddddddd-0000-0000-0000-000000000004') as _ \gset
+do $$ begin
+  assert (select theme_id from sendoff_reveal('jo-moves', current_setting('test.key3'))) = 'darkroom', 'a bought look reaches the recipient';
+  assert (select theme_id from sendoff_open('jo-moves', current_setting('test.key3'))) = 'darkroom', 'and the opened view carries it too';
+  assert (select theme_id from sendoff_reveal('ana-g', current_setting('test.key4'))) = 'gold_leaf', 'Plus covers every paid look';
+end $$;
+
 rollback;
 
 drop function test_as(uuid);

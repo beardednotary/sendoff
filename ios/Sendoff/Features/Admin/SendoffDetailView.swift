@@ -4,6 +4,7 @@ import SwiftUI
 struct SendoffDetailView: View {
     @Environment(\.store) private var store
     @Environment(\.theme) private var theme
+    @Environment(PurchaseManager.self) private var purchases
     var sendoffID: UUID
 
     @State private var sendoff: Sendoff?
@@ -24,7 +25,11 @@ struct SendoffDetailView: View {
                         VStack(alignment: .leading, spacing: 0) {
                             facts(s)
                             actions(s).padding(.top, 24)
-                            if s.plan == .free, !contributions.isEmpty { keepLine(s).padding(.top, 18) }
+                            if !purchases.covers(s) {
+                                lookLine(s).padding(.top, 18)
+                            } else if s.plan == .free, !contributions.isEmpty {
+                                keepLine(s).padding(.top, 18)
+                            }
                             if s.moderation == .review, !pending.isEmpty { review }
                             envelope(s)
                             if !hidden.isEmpty { hiddenSection }
@@ -51,12 +56,21 @@ struct SendoffDetailView: View {
                 .appTheme()
             }
             .fullScreenCover(isPresented: $showPreview) {
-                RevealView(sendoff: s, contributions: approved, preview: true)
+                RevealView(sendoff: previewSendoff(s), contributions: approved, preview: true)
             }
             .confirmationDialog("Open it now?", isPresented: $confirmOpen, titleVisibility: .visible) {
-                Button("Open for \(s.recipientFirstName)") { Task { await setState(.open) } }
+                if purchases.covers(s) {
+                    Button("Open for \(s.recipientFirstName)") { Task { await setState(.open) } }
+                } else {
+                    Button("Keep \(lookName(s.themeID))") { showPaywall = true }
+                    Button("Open with \(lookName(s.themeID.freeAlternative))") { Task { await setState(.open) } }
+                }
             } message: {
-                Text("\(s.recipientFirstName) will be able to open it right away. Entries stop here.")
+                if purchases.covers(s) {
+                    Text("\(s.recipientFirstName) will be able to open it right away. Entries stop here.")
+                } else {
+                    Text("\(s.recipientFirstName) will be able to open it right away. \(lookName(s.themeID)) is a Plus look, so without Plus or \(lookName(s.themeID)) on its own, \(s.recipientFirstName) sees \(lookName(s.themeID.freeAlternative)).")
+                }
             }
             .task { await load() }
             .refreshable { await load() }
@@ -129,6 +143,36 @@ struct SendoffDetailView: View {
                 .accessibilityLabel("Send \(s.recipientFirstName) the link")
             }
         }
+    }
+
+    /// A Plus look nobody has paid for yet: what the recipient will see, and the way to keep it.
+    private func lookLine(_ s: Sendoff) -> some View {
+        let look = lookName(s.themeID)
+        let instead = lookName(s.themeID.freeAlternative)
+        let first = s.recipientFirstName
+        return Button { showPaywall = true } label: {
+            HStack(spacing: 6) {
+                Text(s.state == .open
+                     ? "\(first) sees \(instead). Add Plus or get \(look) and it changes to \(look)"
+                     : "\(look) is a Plus look. Add Plus or get \(look) before it opens, or \(first) sees \(instead)")
+                    .multilineTextAlignment(.leading)
+                Image(systemName: "chevron.right").font(.system(size: 11, weight: .semibold))
+            }
+            .font(Typeface.caption)
+            .foregroundStyle(theme.mutedInkColor)
+        }
+        .buttonStyle(.pressable)
+    }
+
+    private func lookName(_ id: ThemeID) -> String { ThemeCatalog.theme(id).name }
+
+    /// Before it opens the organizer previews the look they chose, which is free to try. Once it
+    /// is open, the preview shows what the recipient actually saw.
+    private func previewSendoff(_ s: Sendoff) -> Sendoff {
+        guard s.state == .open else { return s }
+        var shown = s
+        shown.themeID = purchases.look(for: s)
+        return shown
     }
 
     /// The paywall, after entries arrive and never before. Free is a real option; this is an offer.
@@ -236,7 +280,10 @@ struct SendoffDetailView: View {
     private var hidden: [Contribution] { contributions.filter { $0.status == .hidden } }
 
     private func load() async {
+        // Also tells the server about looks bought before it tracked them (see refreshOwnedThemes).
+        async let looks: Void = purchases.refreshOwnedThemes()
         if let all = try? await store.mySendoffs(), let s = all.first(where: { $0.id == sendoffID }) { sendoff = s }
+        await looks
         contributions = (try? await store.contributions(for: sendoffID)) ?? []
     }
 

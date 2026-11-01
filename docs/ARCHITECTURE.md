@@ -83,7 +83,14 @@ from the domain lists both the app and the clip.
   recorded as credits in `entitlements` (one row per credit, `external_id` = transaction id,
   unique) *before* `finish()`, so a crash cannot lose it. `redeem_entitlement()` spends a credit
   on a Sendoff: raises `plan` and `contributor_limit`, never lowers them. The paywall
-  (`Features/Paywall`) appears on the organizer's dashboard after entries arrive, never before.
+  (`Features/Paywall`) appears on the organizer's dashboard after entries arrive, never before,
+  or from the note about an unpaid Plus look.
+- Plus looks (Gold Leaf, Darkroom, Field Day) are free to try: the organizer picks one freely and
+  contributors see it. A look bought on its own is also recorded in `entitlements` (`theme.{id}`,
+  never consumed, `external_id` = original transaction id). What the recipient sees is
+  `sendoff_look()` (`0006_paid_looks.sql`): the chosen look if it is included, the Sendoff has
+  Plus, or the organizer bought it; otherwise `themes.free_alternative`. The app mirrors this in
+  `PurchaseManager.covers(_:)` and asks before opening a Sendoff whose look is unpaid.
 - Limits are enforced in the database: a trigger refuses the insert past `contributor_limit`
   (`sendoff_full`), Free holds 10, hidden entries do not count.
 - `ios/Sendoff.storekit` lets the simulator buy without App Store Connect; the `Sendoff` scheme

@@ -11,6 +11,17 @@ enum ThemeID: String, Codable, CaseIterable, Identifiable {
     case fieldDay = "field_day"
 
     var id: String { rawValue }
+
+    /// What the recipient sees in place of a paid look nobody has paid for. Mirrors
+    /// `themes.free_alternative` in 0006_paid_looks.sql.
+    var freeAlternative: ThemeID {
+        switch self {
+        case .goldLeaf: .letterpress
+        case .darkroom: .midnightToast
+        case .fieldDay: .chalk
+        case .letterpress, .midnightToast, .chalk: self
+        }
+    }
 }
 
 enum ThemeMotion: String, Codable {

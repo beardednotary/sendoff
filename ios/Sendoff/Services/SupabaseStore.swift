@@ -435,8 +435,17 @@ final class SupabaseStore: SendoffStore {
 
     func recordPurchase(_ product: ProductID, transactionID: String) async throws -> [Entitlement] {
         guard let uid = currentUserID else { throw StoreError.notAllowed }
-        guard let plan = product.plan, let creditProduct = ProductID.credit(for: plan) else { return [] }
         struct Insert: Encodable { var user_id: UUID; var product_id: String; var source: String; var external_id: String }
+        if product.themeID != nil {
+            // A look bought on its own: one row, never consumed, keyed by the original transaction
+            // so restores and other devices add nothing. Only for a real account: the row decides
+            // what this organizer's recipients see, and an anonymous id would strand it.
+            guard isSignedIn else { return [] }
+            let row = Insert(user_id: uid, product_id: product.rawValue, source: "storekit", external_id: transactionID)
+            try await client.from("entitlements").upsert([row], onConflict: "external_id", ignoreDuplicates: true).execute()
+            return []
+        }
+        guard let plan = product.plan, let creditProduct = ProductID.credit(for: plan) else { return [] }
         let rows = (0..<product.credits).map { i in
             Insert(user_id: uid, product_id: creditProduct.rawValue, source: "storekit",
                    external_id: product.credits == 1 ? transactionID : "\(transactionID)#\(i)")

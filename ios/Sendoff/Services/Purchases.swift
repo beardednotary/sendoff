@@ -52,6 +52,14 @@ final class PurchaseManager {
     func credit(for plan: Plan) -> Entitlement? { credits.first { $0.product?.plan == plan } }
     func owns(_ theme: ThemeID) -> Bool { !ThemeCatalog.theme(theme).premium || ownedThemes.contains(theme) }
 
+    /// Whether the recipient sees the look this Sendoff was made with: it is free, the look was
+    /// bought, or Plus covers it. Otherwise they see its free alternative. Mirrors
+    /// `sendoff_look()` in 0006_paid_looks.sql.
+    func covers(_ sendoff: Sendoff) -> Bool { owns(sendoff.themeID) || sendoff.plan >= .plus }
+
+    /// The look the recipient sees right now.
+    func look(for sendoff: Sendoff) -> ThemeID { covers(sendoff) ? sendoff.themeID : sendoff.themeID.freeAlternative }
+
     func refreshCredits() async {
         let all = (try? await store.entitlements()) ?? []
         credits = all.filter { $0.isAvailable && $0.product?.plan != nil }.sorted { $0.createdAt < $1.createdAt }
@@ -60,8 +68,12 @@ final class PurchaseManager {
     func refreshOwnedThemes() async {
         var owned: Set<ThemeID> = []
         for await result in Transaction.currentEntitlements {
-            if case .verified(let t) = result, t.revocationDate == nil, let theme = ProductID(rawValue: t.productID)?.themeID {
+            if case .verified(let t) = result, t.revocationDate == nil,
+               let id = ProductID(rawValue: t.productID), let theme = id.themeID {
                 owned.insert(theme)
+                // Bought on another device, or before the server tracked looks: tell it now, since
+                // it decides what recipients see. Repeats are no-ops.
+                _ = try? await store.recordPurchase(id, transactionID: String(t.originalID))
             }
         }
         ownedThemes = owned
@@ -130,6 +142,8 @@ final class PurchaseManager {
             await refreshCredits()
         } else if let theme = id.themeID {
             ownedThemes.insert(theme)
+            // If this fails, refreshOwnedThemes() records it on a later launch.
+            _ = try? await store.recordPurchase(id, transactionID: String(t.originalID))
         }
         await t.finish()
     }
