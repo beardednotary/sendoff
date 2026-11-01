@@ -91,6 +91,15 @@ from the domain lists both the app and the clip.
   `sendoff_look()` (`0006_paid_looks.sql`): the chosen look if it is included, the Sendoff has
   Plus, or the organizer bought it; otherwise `themes.free_alternative`. The app mirrors this in
   `PurchaseManager.covers(_:)` and asks before opening a Sendoff whose look is unpaid.
+- Apple Music (Plus, `0007_apple_music.sql`): an organizer can link any catalog song
+  (`sendoffs.apple_music_id`, title, artist) from `SongPicker`, which searches with MusicKit.
+  Same rule as the paid looks: free to try, and `sendoff_reveal` returns the song only when the
+  Sendoff has Plus, otherwise the stock track plays. In the app, an Apple Music subscriber who has
+  allowed Apple Music hears the whole song (`ApplicationMusicPlayer`, paused rather than ducked
+  under voice and video). Everyone else hears Apple's 30-second preview. The `apple-music` Edge
+  Function looks the preview up for the recipient key, signing a MusicKit developer token with the
+  `MUSICKIT_*` secrets, so the key never reaches a browser. Audio is never stored, and the song is
+  always credited to Apple Music.
 - Limits are enforced in the database: a trigger refuses the insert past `contributor_limit`
   (`sendoff_full`), Free holds 10, hidden entries do not count.
 - `ios/Sendoff.storekit` lets the simulator buy without App Store Connect; the `Sendoff` scheme

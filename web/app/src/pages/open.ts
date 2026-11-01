@@ -98,11 +98,28 @@ class Reveal {
   }
 
   private async loadMusic(): Promise<void> {
-    const track = await (await getStore()).track(this.s.musicTrackId);
-    this.trackTitle = track?.title ?? null;
+    const store = await getStore();
     const label = this.root.querySelector<HTMLElement>('[data-track]');
-    if (label && this.trackTitle) { label.hidden = false; label.lastChild!.textContent = this.trackTitle; }
-    this.bed.load(track?.url ?? null);
+    // A linked song plays as Apple's 30-second preview and is credited to Apple Music, with a
+    // link to the whole song. Without a preview it falls back to the stock track.
+    const song = this.s.song;
+    const preview = song ? await store.songPreview(this.slug, this.key) : null;
+    if (song && preview?.previewUrl) {
+      this.trackTitle = `${song.title} · ${song.artist}`;
+      if (label) {
+        label.hidden = false;
+        label.lastChild!.textContent = `${this.trackTitle} · `;
+        label.appendChild(preview.appleMusicUrl
+          ? h('a', { href: preview.appleMusicUrl, target: '_blank', rel: 'noopener' }, 'Apple Music')
+          : document.createTextNode('Apple Music'));
+      }
+      this.bed.load(preview.previewUrl);
+    } else {
+      const track = await store.track(this.s.musicTrackId);
+      this.trackTitle = track?.title ?? null;
+      if (label && this.trackTitle) { label.hidden = false; label.lastChild!.textContent = this.trackTitle; }
+      this.bed.load(track?.url ?? null);
+    }
     this.musicBtn.hidden = !this.bed.available;
   }
 

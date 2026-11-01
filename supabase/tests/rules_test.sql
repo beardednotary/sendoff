@@ -322,6 +322,25 @@ do $$ begin
   assert (select theme_id from sendoff_reveal('ana-g', current_setting('test.key4'))) = 'gold_leaf', 'Plus covers every paid look';
 end $$;
 
+-- A linked Apple Music song reaches the recipient only with Plus; the organizer always keeps it
+select test_as('aaaaaaaa-0000-0000-0000-000000000001') as _ \gset
+update sendoffs set apple_music_id = '1440818839', apple_music_title = 'Here Comes the Sun', apple_music_artist = 'The Beatles'
+ where slug in ('mr-patel', 'ana-g');
+do $$ begin
+  begin
+    update sendoffs set apple_music_id = 'https://music.apple.com/x', apple_music_title = 'x' where slug = 'ana-g';
+    raise exception 'a non-catalog song id was accepted';
+  exception when check_violation then null;
+  end;
+  assert (select apple_music_title from sendoffs where slug = 'mr-patel') = 'Here Comes the Sun', 'the organizer keeps the song they linked';
+end $$;
+select test_as('dddddddd-0000-0000-0000-000000000004') as _ \gset
+do $$ begin
+  assert (select apple_music_id from sendoff_reveal('mr-patel', current_setting('test.key2'))) is null, 'without Plus the recipient gets the stock track';
+  assert (select apple_music_id from sendoff_reveal('ana-g', current_setting('test.key4'))) = '1440818839', 'with Plus the recipient gets the song';
+  assert (select apple_music_artist from sendoff_reveal('ana-g', current_setting('test.key4'))) = 'The Beatles';
+end $$;
+
 rollback;
 
 drop function test_as(uuid);

@@ -18,6 +18,11 @@ enable_confirmations = false
 [functions.sign-media]
 verify_jwt = false
 
+# The recipient's page and app ask for a linked song's preview with the recipient key, before any
+# session exists, like sign-media.
+[functions.apple-music]
+verify_jwt = false
+
 # Called only by the media trigger (0004_media_webhook.sql) with the service role key.
 [functions.process-media]
 verify_jwt = true

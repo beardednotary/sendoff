@@ -19,6 +19,7 @@ struct SendoffDetailView: View {
     @State private var photoItem: PhotosPickerItem?
     @State private var framing: PhotoToFrame?
     @State private var coverError: String?
+    @State private var pickingSong = false
 
     var body: some View {
         if let s = sendoff {
@@ -82,7 +83,10 @@ struct SendoffDetailView: View {
                 }
                 .appTheme()
             }
-            .alert("Couldn't change the photo", isPresented: Binding(get: { coverError != nil }, set: { if !$0 { coverError = nil } })) {
+            .sheet(isPresented: $pickingSong) {
+                SongPicker { song in Task { await saveSong(song, for: s.id) } }.appTheme()
+            }
+            .alert("Couldn't change that", isPresented: Binding(get: { coverError != nil }, set: { if !$0 { coverError = nil } })) {
                 Button("OK") {}
             } message: { Text(coverError ?? "") }
             .confirmationDialog("Open it now?", isPresented: $confirmOpen, titleVisibility: .visible) {
@@ -142,6 +146,9 @@ struct SendoffDetailView: View {
             if s.state != .open {
                 MetaLine(systemImage: "person.2", text: countLine(s))
                 MetaLine(systemImage: "lock", text: s.opensAt.map { "Opens \($0.formatted(.dateTime.weekday(.wide).month(.wide).day()))" } ?? "Opens when you say so")
+            }
+            if let song = s.song {
+                MetaLine(systemImage: "music.note", text: s.plan >= .plus ? song.line : "\(song.line) \u{00B7} with Plus")
             }
         }
         .padding(.top, 22)
@@ -281,6 +288,12 @@ struct SendoffDetailView: View {
                 Button { pickingPhoto = true } label: {
                     Label(s.recipientPhotoURL == nil ? "Add a cover photo" : "Change cover photo", systemImage: "photo")
                 }
+                Button { pickingSong = true } label: {
+                    Label(s.song == nil ? "Choose a song from Apple Music" : "Change the song", systemImage: "music.note")
+                }
+                if s.song != nil {
+                    Button { Task { await saveSong(nil, for: s.id) } } label: { Label("Go back to stock music", systemImage: "music.note.list") }
+                }
             }
             if approved.count > 1 {
                 Button { showReorder = true } label: { Label("Reorder entries", systemImage: "arrow.up.arrow.down") }
@@ -320,6 +333,15 @@ struct SendoffDetailView: View {
             await load()
         } catch {
             coverError = "That didn't save. Check your connection and try again."
+        }
+    }
+
+    private func saveSong(_ song: LinkedSong?, for id: UUID) async {
+        do {
+            try await store.setSong(song, for: id)
+            await load()
+        } catch {
+            coverError = "The song didn't save. Check your connection and try again."
         }
     }
 

@@ -115,15 +115,20 @@ final class SupabaseStore: SendoffStore {
         // Only present on rows the organizer reads (RLS "organizer full access").
         var contribute_token: String?
         var recipient_key: String?
+        var apple_music_id: String?
+        var apple_music_title: String?
+        var apple_music_artist: String?
 
         func model(organizerName: String, photo: URL? = nil) -> Sendoff {
-            Sendoff(id: id, slug: slug, organizerID: organizer_id, organizerName: organizerName,
+            var s = Sendoff(id: id, slug: slug, organizerID: organizer_id, organizerName: organizerName,
                     occasion: occasion, recipientName: recipient_name, recipientPhotoURL: photo,
                     fromLine: from_line, coverMessage: cover_message, themeID: theme_id,
                     musicTrackID: music_track_id, state: state, moderation: moderation, reveal: reveal,
                     closesAt: closes_at, opensAt: opens_at, openedAt: opened_at, plan: plan,
                     contributorLimit: contributor_limit, createdAt: created_at, contributorGoal: contributor_goal,
                     contributeToken: contribute_token, recipientKey: recipient_key)
+            s.song = LinkedSong(id: apple_music_id, title: apple_music_title, artist: apple_music_artist)
+            return s
         }
     }
 
@@ -230,6 +235,25 @@ final class SupabaseStore: SendoffStore {
         if let old = before?.recipient_photo_path, old != path { _ = try? await uploads.remove(paths: [old]) }
     }
 
+    func setSong(_ song: LinkedSong?, for sendoffID: UUID) async throws {
+        // Written field by field so that removing the song sends nulls rather than leaving them out.
+        struct Patch: Encodable {
+            let song: LinkedSong?
+            enum Key: String, CodingKey { case apple_music_id, apple_music_title, apple_music_artist }
+            func encode(to encoder: Encoder) throws {
+                var c = encoder.container(keyedBy: Key.self)
+                try c.encode(song?.id, forKey: .apple_music_id)
+                try c.encode(song?.title, forKey: .apple_music_title)
+                try c.encode(song?.artist, forKey: .apple_music_artist)
+            }
+        }
+        struct Row: Decodable { var apple_music_id: String? }
+        // Once it has opened the row no longer changes, and RLS turns the update into a no-op.
+        let rows: [Row] = try await client.from("sendoffs").update(Patch(song: song)).eq("id", value: sendoffID)
+            .select("apple_music_id").execute().value
+        guard rows.count == 1, rows[0].apple_music_id == song?.id else { throw StoreError.notAllowed }
+    }
+
     func create(_ d: SendoffDraft) async throws -> Sendoff {
         guard isSignedIn, let uid = currentUserID else { throw StoreError.notAllowed }
         struct Insert: Encodable {
@@ -237,13 +261,15 @@ final class SupabaseStore: SendoffStore {
             var from_line: String?; var cover_message: String?; var theme_id: ThemeID; var music_track_id: String?
             var state: SendoffState; var moderation: ModerationMode; var reveal: RevealPolicy
             var closes_at: Date?; var opens_at: Date?; var contributor_goal: Int
+            var apple_music_id: String?; var apple_music_title: String?; var apple_music_artist: String?
         }
         let ins = Insert(slug: Slug.make(), organizer_id: uid, occasion: d.occasion,
                          recipient_name: d.recipientName, from_line: d.fromLine.isEmpty ? nil : d.fromLine,
                          cover_message: d.coverMessage.isEmpty ? nil : d.coverMessage, theme_id: d.themeID,
                          music_track_id: d.musicTrackID ?? d.occasion.defaultTrack, state: .collecting,
                          moderation: d.moderation, reveal: d.reveal, closes_at: d.closesAt,
-                         opens_at: d.reveal == .onDate ? d.opensAt : nil, contributor_goal: d.goal)
+                         opens_at: d.reveal == .onDate ? d.opensAt : nil, contributor_goal: d.goal,
+                         apple_music_id: d.song?.id, apple_music_title: d.song?.title, apple_music_artist: d.song?.artist)
         let row: SendoffRow = try await client.from("sendoffs").insert(ins).select().single().execute().value
         let photo: URL? = if let local = d.recipientPhoto { await attachCover(local, to: row.id) } else { nil }
         return row.model(organizerName: currentUserName, photo: photo)
@@ -358,13 +384,14 @@ final class SupabaseStore: SendoffStore {
 
     // MARK: Recipient
 
-    /// What `sendoff_reveal` and `sendoff_open` return (0005_cover_photo.sql).
+    /// What `sendoff_reveal` and `sendoff_open` return (0007_apple_music.sql).
     private struct RevealRow: Codable {
         var id: UUID; var recipient_name: String; var occasion: Occasion; var from_line: String?
         var cover_message: String?; var theme_id: ThemeID; var music_track_id: String?
         var state: SendoffState; var reveal: RevealPolicy; var opens_at: Date?
         var organizer_name: String?; var contributor_count: Int?; var plan: Plan?
         var recipient_photo_path: String?
+        var apple_music_id: String?; var apple_music_title: String?; var apple_music_artist: String?
     }
 
     func reveal(slug: String, key: String) async throws -> Sendoff {
@@ -405,7 +432,18 @@ final class SupabaseStore: SendoffStore {
                         closesAt: nil, opensAt: r.opens_at, openedAt: nil, plan: r.plan ?? .free,
                         contributorLimit: 0, createdAt: .now, recipientKey: key)
         s.contributorCount = r.contributor_count
+        s.song = LinkedSong(id: r.apple_music_id, title: r.apple_music_title, artist: r.apple_music_artist)
         return s
+    }
+
+    func songPreview(slug: String, key: String) async -> URL? {
+        struct Body: Encodable { let slug: String; let key: String; let storefront: String }
+        struct Reply: Decodable { let previewUrl: String? }
+        let storefront = (Locale.current.region?.identifier ?? "US").lowercased()
+        guard let reply: Reply = try? await client.functions.invoke(
+            "apple-music", options: FunctionInvokeOptions(body: Body(slug: slug, key: key, storefront: storefront)))
+        else { return nil }
+        return reply.previewUrl.flatMap(URL.init(string:))
     }
 
     /// The recipient holds no storage grant; `sign-media` checks the key and signs for them.

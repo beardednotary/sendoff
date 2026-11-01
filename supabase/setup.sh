@@ -31,6 +31,7 @@ supabase config push --project-ref "$ref" --yes
 step "Edge Functions"
 supabase functions deploy sign-media --project-ref "$ref" --no-verify-jwt --use-api
 supabase functions deploy process-media --project-ref "$ref" --use-api
+supabase functions deploy apple-music --project-ref "$ref" --no-verify-jwt --use-api
 
 step "Keys"
 keys="$(supabase projects api-keys --project-ref "$ref" --reveal -o json)"

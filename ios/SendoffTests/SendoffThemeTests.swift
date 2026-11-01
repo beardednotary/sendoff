@@ -172,6 +172,14 @@ final class ModelTests: XCTestCase {
         XCTAssertEqual(zoomed.width / zoomed.height, 3 / 4, accuracy: 0.01, "always the frame's shape")
     }
 
+    func testLinkedSongComesFromCompleteColumnsOnly() {
+        XCTAssertNil(LinkedSong(id: nil, title: "Here Comes the Sun", artist: "The Beatles"))
+        XCTAssertNil(LinkedSong(id: "1440818839", title: nil, artist: "The Beatles"))
+        XCTAssertEqual(LinkedSong(id: "1440818839", title: "Here Comes the Sun", artist: "The Beatles")?.line,
+                       "Here Comes the Sun \u{00B7} The Beatles")
+        XCTAssertEqual(LinkedSong(id: "1440818839", title: "Here Comes the Sun", artist: nil)?.line, "Here Comes the Sun")
+    }
+
     func testKeepsakePDFKeepsEveryWordAndTheFreeLineOnlyOnFree() async throws {
         var s = MockStore.sampleSendoff
         s.recipientPhotoURL = nil
