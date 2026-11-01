@@ -195,8 +195,8 @@ await step('qr: card renders a code', async () => {
   await shot('13-qr');
 });
 
-// 5. Landing, themes
-await step('landing renders demo links in mock', async () => {
+// 5. Homepage, desktop
+await step('homepage lists the demo Sendoffs in mock', async () => {
   await page.goto(`${base}/`);
   await page.waitForSelector('.demo-links a');
   await shot('14-landing');
@@ -215,14 +215,15 @@ await step('desktop reveal opens from the keyboard', async () => {
   await dctx.close();
 });
 
-// 6. Site pages (src/site): prerendered HTML that reads without script, in the sitemap
-const appPaths = ['/', '/privacy', '/support'];
+// 6. Site pages (src/site): every public page is prerendered HTML that reads without script, and
+// is in the sitemap; private links get the app.
+const infoPaths = ['/privacy', '/support'];
 let sitePaths = [];
 await step('sitemap and robots.txt', async () => {
   const xml = await (await fetch(`${base}/sitemap.xml`)).text();
-  const paths = [...xml.matchAll(/<loc>https:\/\/sendoffapp\.com([^<]*)<\/loc>/g)].map((m) => m[1]);
-  sitePaths = paths.filter((p) => !appPaths.includes(p));
-  for (const p of [...appPaths, '/teams', '/retirement']) if (!paths.includes(p)) throw new Error(`${p} not in the sitemap`);
+  sitePaths = [...xml.matchAll(/<loc>https:\/\/sendoffapp\.com([^<]*)<\/loc>/g)].map((m) => m[1]);
+  for (const p of ['/', ...infoPaths, '/teams', '/retirement']) if (!sitePaths.includes(p)) throw new Error(`${p} not in the sitemap`);
+  const paths = sitePaths;
   if (paths.some((p) => p.startsWith('/s/'))) throw new Error('a private link is in the sitemap');
   const robots = await (await fetch(`${base}/robots.txt`)).text();
   if (!robots.includes('Disallow: /s/') || !robots.includes('Sitemap: https://sendoffapp.com/sitemap.xml')) throw new Error(robots);
@@ -245,18 +246,35 @@ await step('site pages arrive as complete HTML', async () => {
     descriptions.add(description);
     need(html.includes(`<link rel="canonical" href="https://sendoffapp.com${p}">`), 'canonical');
     need(html.includes(`<meta property="og:url" content="https://sendoffapp.com${p}">`), 'og:url');
+    const info = infoPaths.includes(p);
     const ld = JSON.parse(html.match(/<script type="application\/ld\+json">(.+?)<\/script>/)[1]);
     const types = ld['@graph'].map((n) => n['@type']);
-    for (const t of ['Organization', 'MobileApplication', 'FAQPage']) need(types.includes(t), `JSON-LD ${t}`);
+    for (const t of ['Organization', 'MobileApplication', info ? 'WebPage' : 'FAQPage']) need(types.includes(t), `JSON-LD ${t}`);
     const css = html.match(/<link rel="stylesheet" href="([^"]+)">/)[1];
     need((await fetch(base + css)).ok, `stylesheet ${css}`);
     // Every picture: described, sized so nothing jumps as it loads, and every file it names served.
     const imgs = [...html.matchAll(/<img ([^>]+)>/g)].map((m) => m[1]);
-    need(imgs.length >= (p === '/teams' ? 1 : 8), `pictures: ${imgs.length}`);
+    const pictures = p === '/' ? 16 : p === '/teams' ? 1 : info ? 0 : 8;
+    need(imgs.length >= pictures, `pictures: ${imgs.length}, expected ${pictures}`);
     for (const img of imgs) need(/alt="[^"]{10,}"/.test(img) && /width="\d+"/.test(img) && /height="\d+"/.test(img), `alt and size: ${img}`);
     const files = new Set([...html.matchAll(/(?:src|srcset)="([^"]+)"/g)].flatMap((m) => m[1].split(',').map((f) => f.trim().split(' ')[0])));
     for (const file of files) need((await fetch(base + file)).ok, `image ${file}`);
   }
+});
+await step('private links get the app, kept out of search', async () => {
+  for (const p of ['/s/maria-r?t=demo', '/s/maria-r/open?k=demo']) {
+    const html = await (await fetch(base + p)).text();
+    if (!html.includes('id="app"') || !html.includes('<meta name="robots" content="noindex, nofollow">')) throw new Error(`${p} is not the app`);
+    if (html.includes('rel="canonical"') || html.includes('application/ld+json')) throw new Error(`${p} carries public-page tags`);
+  }
+  const lost = await (await fetch(`${base}/404.html`)).text();
+  if (!lost.includes('Nothing here.') || !lost.includes('<meta name="robots" content="noindex">')) throw new Error('404 page');
+});
+await step('homepage: every jump link lands on its section', async () => {
+  await page.goto(`${base}/`);
+  const missing = await page.locator('.jump a').evaluateAll((as) => as.map((a) => a.getAttribute('href')).filter((h) => !document.querySelector(h)));
+  if (missing.length) throw new Error(`no section for ${missing.join(', ')}`);
+  if (await page.locator('.occasion-card').count() !== 6) throw new Error('occasion cards');
 });
 await step('teams page: plans and a way to reach us', async () => {
   await page.goto(`${base}/teams`);

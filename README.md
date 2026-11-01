@@ -55,11 +55,12 @@ scheme runs with `Sendoff.storekit`, so the paywall works in the simulator with 
 cd web/app && npm install && npm run dev     # http://localhost:5173
 ```
 
-With no `.env.local` it runs on mock data. The landing page links to the three demo Sendoffs:
+With no `.env.local` it runs on mock data. The homepage links to the three demo Sendoffs:
 the reveal (`/s/maria-r/open?k=demo`), a sealed one with a countdown, the contribute form and
-the printable QR card. `npm run build` typechecks and builds `dist/` for a static host with
-SPA rewrites. `npm run e2e` runs the Playwright smoke test (reveal, countdown, contribute with
-edit and photo, QR card) in headless Chromium. Details in `web/app/README.md`.
+the printable QR card. `npm run build` typechecks and builds `dist/`: the public pages as
+prerendered HTML, and the app for `/s/...` links. `npm run e2e` runs the Playwright smoke test
+(reveal, countdown, contribute with edit and photo, QR card, the public pages) in headless
+Chromium. Details in `web/app/README.md`.
 
 `web/prototype/` is the static design prototype the site grew out of; the colored dots switch
 themes.
