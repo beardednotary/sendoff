@@ -416,7 +416,8 @@ class Reveal {
         e.body && h('p', { class: 'entry' }, e.body),
         h('p', { class: 'sig' }, h('b', {}, e.authorName), e.authorRelationship && h('span', {}, `· ${e.authorRelationship}`)),
       )),
-      h('p', { class: 'caption' }, `Opened ${longDate(new Date())}. Made with Sendoff.`),
+      // Paid Sendoffs carry no Sendoff line, here or on the last page of the reveal.
+      h('p', { class: 'caption' }, `Opened ${longDate(new Date())}.${this.s.plan === 'free' ? ' Made with Sendoff.' : ''}`),
     );
     document.body.appendChild(sheet);
     const cleanup = () => { sheet.remove(); window.removeEventListener('afterprint', cleanup); };
