@@ -215,6 +215,66 @@ await step('desktop reveal opens from the keyboard', async () => {
   await dctx.close();
 });
 
+// 6. Site pages (src/site): prerendered HTML that reads without script, in the sitemap
+const appPaths = ['/', '/privacy', '/support'];
+let sitePaths = [];
+await step('sitemap and robots.txt', async () => {
+  const xml = await (await fetch(`${base}/sitemap.xml`)).text();
+  const paths = [...xml.matchAll(/<loc>https:\/\/sendoffapp\.com([^<]*)<\/loc>/g)].map((m) => m[1]);
+  sitePaths = paths.filter((p) => !appPaths.includes(p));
+  for (const p of [...appPaths, '/teams', '/retirement']) if (!paths.includes(p)) throw new Error(`${p} not in the sitemap`);
+  if (paths.some((p) => p.startsWith('/s/'))) throw new Error('a private link is in the sitemap');
+  const robots = await (await fetch(`${base}/robots.txt`)).text();
+  if (!robots.includes('Disallow: /s/') || !robots.includes('Sitemap: https://sendoffapp.com/sitemap.xml')) throw new Error(robots);
+});
+await step('site pages arrive as complete HTML', async () => {
+  const titles = new Set();
+  const descriptions = new Set();
+  for (const p of sitePaths) {
+    const res = await fetch(base + p);
+    const html = await res.text();
+    const need = (cond, what) => { if (!cond) throw new Error(`${p}: ${what}`); };
+    need(res.ok && res.headers.get('content-type')?.includes('text/html'), `status ${res.status}`);
+    need((html.match(/<h1[\s>]/g) ?? []).length === 1, 'one h1');
+    need(!/<script[^>]*\bsrc=/.test(html), 'no script needed');
+    const title = html.match(/<title>([^<]+)<\/title>/)?.[1];
+    const description = html.match(/<meta name="description" content="([^"]+)"/)?.[1];
+    need(title && !titles.has(title), `unique title: ${title}`);
+    need(description && !descriptions.has(description) && description.length <= 160, `unique description under 160: ${description}`);
+    titles.add(title);
+    descriptions.add(description);
+    need(html.includes(`<link rel="canonical" href="https://sendoffapp.com${p}">`), 'canonical');
+    need(html.includes(`<meta property="og:url" content="https://sendoffapp.com${p}">`), 'og:url');
+    const ld = JSON.parse(html.match(/<script type="application\/ld\+json">(.+?)<\/script>/)[1]);
+    const types = ld['@graph'].map((n) => n['@type']);
+    for (const t of ['Organization', 'MobileApplication', 'FAQPage']) need(types.includes(t), `JSON-LD ${t}`);
+    const css = html.match(/<link rel="stylesheet" href="([^"]+)">/)[1];
+    need((await fetch(base + css)).ok, `stylesheet ${css}`);
+  }
+});
+await step('teams page: plans and a way to reach us', async () => {
+  await page.goto(`${base}/teams`);
+  if (await page.locator('.tier').count() !== 3) throw new Error('tiers');
+  const href = await page.locator('.intro a.btn').getAttribute('href');
+  if (!href?.startsWith('mailto:support@sendoffapp.com')) throw new Error(href);
+  await shot('17-teams');
+  const dctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  const d = await dctx.newPage();
+  await d.goto(`${base}/teams`);
+  await d.screenshot({ path: `${out}/18-desktop-teams.png`, fullPage: true });
+  await d.goto(`${base}/retirement`);
+  await d.screenshot({ path: `${out}/19-desktop-retirement.png` });
+  await dctx.close();
+});
+await step('every page links to the site pages', async () => {
+  await page.goto(`${base}/`);
+  await page.waitForSelector('.site-foot');
+  const hrefs = await page.locator('a').evaluateAll((as) => as.map((a) => a.getAttribute('href')));
+  for (const p of sitePaths) if (!hrefs.includes(p)) throw new Error(`landing does not link to ${p}`);
+  await page.goto(`${base}/retirement`);
+  if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) throw new Error('scrolls sideways at 390');
+});
+
 console.log(errors.length ? `\nPAGE ERRORS:\n${errors.join('\n')}` : '\nno page errors');
 await browser.close();
 server?.kill();
