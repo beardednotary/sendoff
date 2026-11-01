@@ -153,6 +153,14 @@ design can be reviewed with `npm run dev` and nothing else. See `web/app/README.
 | `/s/{slug}` | Contributor | Add a note, photos, voice note or video. No account. |
 | `/s/{slug}/open?k={recipient_key}` | Recipient | The seal over their photo, held to open once `opens_at` passes. Music, one entry at a time, keepsake at the end. |
 | `/s/{slug}/qr?t={token}` | Organizer | Printable QR card for the party, the break room or inside a physical card. |
+| `/teams` | Companies, schools, teams | The annual plan, sold by email for now (Stripe later). |
+| `/retirement`, `/graduation`, `/farewell`, `/teacher-appreciation`, `/military`, `/season-end` | Search | One page per occasion. |
+
+The `/s/` pages are the client-rendered app. `/teams` and the occasion pages are written from
+`web/app/src/site` into plain HTML at build time, with their own titles, descriptions, canonical
+URLs and JSON-LD, so search engines and link previews read them without running script; the build
+also writes `sitemap.xml`. `robots.txt` and an `X-Robots-Tag` header keep every `/s/` link out of
+search.
 
 Web privacy, concretely: contributors get an anonymous Supabase session so RLS has an `auth.uid()`
 for their own row. The token and key in the links are the real capabilities, checked by

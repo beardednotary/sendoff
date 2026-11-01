@@ -132,10 +132,10 @@ Create these in-app purchases with exactly these ids (they match `ios/Sendoff.st
 
 | Product id | Type | Price |
 |---|---|---|
-| `sendoff.single` | Consumable | $9.99 |
-| `sendoff.plus` | Consumable | $19.99 |
-| `sendoff.pack5` | Consumable | $39.00 |
-| `sendoff.pack10` | Consumable | $69.00 |
+| `sendoff.single` | Consumable | $8.99 |
+| `sendoff.plus` | Consumable | $14.99 |
+| `sendoff.pack5` | Consumable | $34.99 |
+| `sendoff.pack10` | Consumable | $59.99 |
 | `theme.gold_leaf` | Non-consumable | $4.99 |
 | `theme.darkroom` | Non-consumable | $4.99 |
 | `theme.field_day` | Non-consumable | $4.99 |

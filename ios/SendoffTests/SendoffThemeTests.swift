@@ -1,4 +1,5 @@
 import XCTest
+import PDFKit
 @testable import Sendoff
 
 final class SendoffThemeTests: XCTestCase {
@@ -177,6 +178,32 @@ final class ModelTests: XCTestCase {
         XCTAssertEqual(LinkedSong(id: "1440818839", title: "Here Comes the Sun", artist: "The Beatles")?.line,
                        "Here Comes the Sun \u{00B7} The Beatles")
         XCTAssertEqual(LinkedSong(id: "1440818839", title: "Here Comes the Sun", artist: nil)?.line, "Here Comes the Sun")
+    }
+
+    func testKeepsakePDFKeepsEveryWordAndTheFreeLineOnlyOnFree() async throws {
+        var s = MockStore.sampleSendoff
+        s.recipientPhotoURL = nil
+        s.plan = .free
+        let long = Array(repeating: "Thank you for every early morning and every late night.", count: 120).joined(separator: " ") + " Goodbye for now."
+        let entries = [note("Dana", "Short and sweet."), note("Priya", long)]
+        let freeFile = try await KeepsakePDF.make(sendoff: s, entries: entries)
+        let free = try XCTUnwrap(PDFDocument(url: freeFile))
+        XCTAssertGreaterThanOrEqual(free.pageCount, 3, "a cover page, then a long note carried over pages")
+        let text = free.string ?? ""
+        XCTAssertTrue(text.contains("For \(s.recipientName)"))
+        XCTAssertTrue(text.contains("Short and sweet."))
+        XCTAssertTrue(text.contains("Goodbye for now."), "the end of a long note is never cut off")
+        XCTAssertTrue(text.contains("Made with Sendoff"))
+        s.plan = .single
+        let paidFile = try await KeepsakePDF.make(sendoff: s, entries: entries)
+        let paid = try XCTUnwrap(PDFDocument(url: paidFile))
+        XCTAssertFalse((paid.string ?? "").contains("Made with Sendoff"), "a paid Sendoff carries no Sendoff line")
+    }
+
+    private func note(_ name: String, _ body: String) -> Contribution {
+        Contribution(id: UUID(), sendoffID: MockStore.sampleSendoff.id, authorID: nil, authorName: name,
+                     authorRelationship: nil, body: body, promptUsed: nil, status: .approved,
+                     sharedWithGroup: false, pinned: false, sortOrder: nil, media: [], createdAt: .now)
     }
 
     func testEveryPlusLookFallsBackToAnIncludedOne() {

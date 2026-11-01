@@ -9,6 +9,25 @@ data, or an in-memory mock when no keys are configured.
 | `/s/{slug}/open?k={key}` | Recipient | The seal over their photo. Countdown until `opens_at`, then press and hold (Enter from the keyboard), music, one entry at a time, keepsake, print to PDF. |
 | `/s/{slug}/qr?t={token}` | Organizer | Printable QR card for the break room or inside a real card. |
 | `/` | Anyone | One screen. In mock mode it links to the three demo Sendoffs. |
+| `/teams` | Companies, schools, teams | The annual plan: tiers, what it includes, personal prices to compare. “Talk to us” writes to support@sendoffapp.com. |
+| `/retirement` and five more | Search | One page per occasion: what goes in, how it works, the app's prompts, cost, questions. |
+
+## The public pages
+
+`/teams` and the occasion pages are prerendered, not client-rendered, so they reach search engines
+and link previews as complete HTML with no script. The words live in `src/site/content.ts`, the
+markup in `src/site/render.ts`, and the `sitePages` plugin in `vite.config.ts` writes each page to
+`dist/{name}.html` (Cloudflare and `vite preview` serve it at `/{name}`), linked to the app's own
+stylesheet, along with `sitemap.xml`. In `npm run dev` the plugin renders them on request, so copy
+edits show on reload. Every page carries its own title, description, canonical URL, Open Graph
+tags and JSON-LD (Organization, MobileApplication, FAQPage); `index.html` gets the first two.
+
+- **App Store link:** set `Site.appStoreUrl` and `Site.appStoreId` in `content.ts` when the app is
+  live; every page then links to it and Safari shows its banner.
+- **Team plan checkout:** give a tier a `checkout` URL (a Stripe Payment Link or Checkout session
+  URL) in `Tiers`, and its button buys the plan instead of opening an email.
+- **Prices** are in `PersonalPrices` and `Tiers`; App Store Connect is the source of truth for the
+  personal ones.
 
 ## Run
 
@@ -38,7 +57,8 @@ npm run e2e          # build, serve, run e2e/smoke.mjs in headless Chromium (nee
 Live on Cloudflare at sendoffapp.com (`npm run deploy`); the account and DNS are in the root
 README ("The website"). `wrangler.jsonc` serves `index.html` for any path that matches no file,
 which is the SPA rewrite. `public/_headers` sets the JSON type for
-`/.well-known/apple-app-site-association` and `noindex` / `no-referrer` on every `/s/` link.
+`/.well-known/apple-app-site-association` and `noindex` / `no-referrer` on every `/s/` link. `robots.txt`
+points at the sitemap and keeps `/s/` out of search.
 Newsreader is served from `public/fonts/` (SIL OFL) so no page calls a third party. The keys are
 read at build time from `.env.local` (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`,
 `VITE_PUBLIC_ORIGIN`).

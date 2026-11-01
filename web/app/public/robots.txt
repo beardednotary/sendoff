@@ -1,3 +1,6 @@
-# The landing, privacy and support pages are public. Sendoff links (/s/...) are private.
+# Public: the landing page, /teams, the occasion pages, privacy and support (all in the sitemap).
+# Private: Sendoff links (/s/...), which also send X-Robots-Tag: noindex (public/_headers).
 User-agent: *
 Disallow: /s/
+
+Sitemap: https://sendoffapp.com/sitemap.xml

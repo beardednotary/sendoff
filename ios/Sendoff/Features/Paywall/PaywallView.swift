@@ -40,14 +40,12 @@ struct PaywallView: View {
                             "Up to \(Plan.single.entryLimit) entries",
                             "No Sendoff line on the last page",
                             "Scheduled reveal and the three included looks",
-                            "Save as PDF",
                         ])
 
                         tier(.plus, bullets: [
                             "Unlimited entries",
                             chosenTheme.premium ? "All Plus looks, including \(chosenTheme.name)" : "All Plus looks",
                             "Link your own music (Apple Music)",
-                            "Slideshow mode for the party",
                         ])
 
                         if chosenTheme.premium, !purchases.owns(sendoff.themeID), sendoff.plan < .plus,
