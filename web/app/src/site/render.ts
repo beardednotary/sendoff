@@ -1,7 +1,8 @@
 import { Icons } from '../lib/dom';
+import { occasionTitle } from '../lib/themes';
 import {
-  Site, Steps, Media, CommonFaq, OccasionPages, TeamsPage, Tiers, TeamIncludes, TeamFaq, PersonalPrices,
-  PublicPaths, FooterLinks, promptsFor, type Faq, type OccasionPage,
+  Site, Steps, Entries, Screens, CommonFaq, OccasionPages, TeamsPage, Tiers, TeamIncludes, TeamFaq, PersonalPrices,
+  PublicPaths, FooterLinks, promptsFor, type Cover, type Faq, type OccasionPage, type Screen,
 } from './content';
 
 // The public pages as HTML strings, in the Evening language of the landing page. Called at build
@@ -149,8 +150,9 @@ function getTheApp(): string {
   return `<div class="cta">${action}<p class="caption">Organizers start one in the iPhone app. Everyone else just needs the link.</p></div>`;
 }
 
-function section(eyebrow: string, title: string, content: string, id?: string): string {
-  return `<section class="sect"${id ? ` id="${id}"` : ''}>
+/** A ruled section: its heading beside the content, or above it when `wide` (for rows of screens). */
+function section(eyebrow: string, title: string, content: string, id?: string, wide = false): string {
+  return `<section class="sect${wide ? ' wide' : ''}"${id ? ` id="${id}"` : ''}>
   <header><p class="eyebrow">${esc(eyebrow)}</p><h2 class="title">${esc(title)}</h2></header>
   <div>${content}</div>
 </section>`;
@@ -158,16 +160,41 @@ function section(eyebrow: string, title: string, content: string, id?: string): 
 
 const prose = (paragraphs: string[]): string => `<div class="prose">${paragraphs.map((p) => `<p>${esc(p)}</p>`).join('')}</div>`;
 
-/** The sealed screen, drawn the way the person it is for first sees it. */
-function sealCard(c: { initial: string; name: string; from: string; opens: string; mark?: string }): string {
-  return `<figure class="seal-card" aria-label="A sealed Sendoff for ${esc(c.name)}">
+/** Each picture's full size, and the width it is shown at (for `sizes`). */
+const PHOTO = { w: 640, h: 800, sizes: '300px' };
+const SCREEN = { w: 480, h: 1044, sizes: '(min-width: 800px) 22vw, min(62vw, 240px)' };
+
+/** An image from public/site: AVIF at half and full width ({name}-{width}.avif), with a full-width
+ *  JPEG for browsers without AVIF. Only the cover loads up front. */
+function picture(path: string, alt: string, { w, h, sizes }: typeof PHOTO, first = false): string {
+  const at = (width: number, type: string) => `/site/${path}-${width}.${type}`;
+  return `<picture><source type="image/avif" srcset="${at(w / 2, 'avif')} ${w / 2}w, ${at(w, 'avif')} ${w}w" sizes="${sizes}">`
+    + `<img src="${at(w, 'jpg')}" alt="${esc(alt)}" width="${w}" height="${h}" ${first ? 'fetchpriority="high"' : 'loading="lazy"'} decoding="async"></picture>`;
+}
+
+/** The cover as the app draws it once the seal opens: their photo fading into the page, the
+ *  occasion, their name, and the line from whoever started it. */
+function coverScreen(c: Cover, eyebrow: string): string {
+  return `<figure class="screen cover-screen${c.mark ? ' marked' : ''}">
+  ${picture(`photos/${c.photo}`, c.alt, PHOTO, true)}
   ${c.mark ? `<p class="mark">${esc(c.mark)}</p>` : ''}
-  <div class="seal" aria-hidden="true">${esc(c.initial)}</div>
-  <p class="for">${esc(c.name)}</p>
-  <p class="caption">${esc(c.from)}</p>
-  <p class="opens">${icon('lock')}${esc(c.opens)}</p>
-  <p class="hint">Press and hold the seal</p>
+  <figcaption>
+    <p class="eyebrow">${esc(eyebrow)}</p>
+    <p class="who">${esc(c.name)}</p>
+    <p class="from">${esc(c.from)}</p>
+    <p class="message">${esc(c.message)}</p>
+    <p class="begin" aria-hidden="true">Begin ${icon('arrow')}</p>
+  </figcaption>
 </figure>`;
+}
+
+/** App screens in a row, each with its words: a strip to swipe on a phone, a grid on a desktop. */
+function reel(label: string, items: [name: string, detail: string, screen: Screen][], numbered: boolean): string {
+  const list = numbered ? 'ol' : 'ul';
+  return `<div class="reel" role="region" aria-label="${esc(label)}" tabindex="0"><${list}>${items.map(([name, detail, screen], i) => `
+    <li><figure class="screen">${picture(`app/${screen}`, Screens[screen], SCREEN)}</figure>
+      <div><h3 class="name">${numbered ? `<span class="n" aria-hidden="true">${i + 1}</span>` : ''}${esc(name)}</h3><p>${esc(detail)}</p></div></li>`).join('')}
+  </${list}></div>`;
 }
 
 function intro(eyebrow: string, headline: [string, string], lede: string, action: string, card: string): string {
@@ -190,10 +217,6 @@ function faqList(faq: Faq[]): string {
 
 function occasionPage(p: OccasionPage, assets: Assets): string {
   const faq = [p.faq, ...CommonFaq];
-  const steps = `<ol class="steps">${Steps.map(([name, detail], i) =>
-    `<li><span class="n" aria-hidden="true">${i + 1}</span><div><h3 class="name">${esc(name)}</h3><p>${esc(detail)}</p></div></li>`).join('')}</ol>`;
-  const media = `<ul class="media">${Media.map(([i, name, detail]) =>
-    `<li><span class="glyph">${icon(i)}</span><h3 class="name">${esc(name)}</h3><p class="caption">${esc(detail)}</p></li>`).join('')}</ul>`;
   const prompts = `<div class="prose"><p>Anyone stuck on where to start gets a few prompts, written for the occasion.</p></div>
     <ul class="prompts">${promptsFor(p.occasion).map((t) => `<li>${esc(t)}</li>`).join('')}</ul>`;
   const cost = `<div class="prose">
@@ -202,9 +225,9 @@ function occasionPage(p: OccasionPage, assets: Assets): string {
   </div>`;
 
   return shell({ ...p, faq }, assets, [
-    intro(p.eyebrow, p.headline, p.lede, getTheApp(), sealCard(p.card)),
-    section('How it works', 'Four steps, one link.', steps),
-    section('What goes in', 'More than a signature.', media),
+    intro(p.eyebrow, p.headline, p.lede, getTheApp(), coverScreen(p.cover, occasionTitle(p.occasion))),
+    section('How it works', 'Four steps, one link.', reel('How it works, in the app', Steps, true), undefined, true),
+    section('What goes in', 'More than a signature.', reel('Entries as they open', Entries, false), undefined, true),
     ...p.story.map((s) => section(p.eyebrow, s.heading, prose(s.paragraphs))),
     section('Prompts', 'Something to start from.', prompts),
     section('Cost', 'Free to start.', cost),
@@ -250,7 +273,7 @@ function teamsPage(assets: Assets): string {
   return shell({ ...TeamsPage, faq: TeamFaq }, assets, [
     intro('Sendoff for teams', ['For the people who', 'organize every goodbye.'],
       'Companies, schools and teams run dozens of farewells a year. One annual plan lets anyone on your roster start a Sendoff at the Plus level, with your logo on the cover and one invoice for the year.',
-      talk, sealCard({ initial: 'M', name: 'Maria Reyes', from: 'From 42 colleagues', opens: 'Opens Friday at 4', mark: 'Halden & Co.' })),
+      talk, coverScreen({ ...OccasionPages[0]!.cover, mark: 'Halden & Co.' }, occasionTitle('retirement'))),
     section('Plans', 'Priced by the size of your team.', tiers, 'plans'),
     section('Every plan', 'What’s included.', includes),
     section('Who it’s for', 'Wherever people leave.', prose([

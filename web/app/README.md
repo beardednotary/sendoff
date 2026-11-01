@@ -28,6 +28,17 @@ tags and JSON-LD (Organization, MobileApplication, FAQPage); `index.html` gets t
   URL) in `Tiers`, and its button buys the plan instead of opening an email.
 - **Prices** are in `PersonalPrices` and `Tiers`; App Store Connect is the source of truth for the
   personal ones.
+- **Pictures** are in `public/site`. Each occasion opens on its cover, drawn in HTML over one photo
+  in `photos/` (Unsplash, free licence; the source is noted beside each cover in `content.ts`).
+  The steps and entries are real screens from the iOS app, in `app/`, made from
+  `design/v2/app/*.jpg`. Every picture is an AVIF at full and half width plus a full-width JPEG,
+  named `{name}-{width}`. To refresh a screen:
+
+  ```bash
+  sips -Z 1044 ../../design/v2/app/10-create.jpg -s format avif -s formatOptions 55 --out public/site/app/create-480.avif
+  sips -Z 522 ../../design/v2/app/10-create.jpg -s format avif -s formatOptions 60 --out public/site/app/create-240.avif
+  sips -Z 1044 ../../design/v2/app/10-create.jpg -s format jpeg -s formatOptions 70 --out public/site/app/create-480.jpg
+  ```
 
 ## Run
 

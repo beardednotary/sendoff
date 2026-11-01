@@ -81,25 +81,42 @@ export interface OccasionPage {
   eyebrow: string;
   headline: [string, string];
   lede: string;
-  /** The sealed screen as the person it is for would see it. */
-  card: { initial: string; name: string; from: string; opens: string };
+  /** Their cover, the first thing the person it is for sees once the seal opens. */
+  cover: Cover;
   story: { heading: string; paragraphs: string[] }[];
   faq: Faq;
 }
 
-/** The same four steps on every occasion page. */
-export const Steps: [string, string][] = [
-  ['Start it in the app', 'Who it is for, a photo if you like, and when it opens: on a date, or when you say. It takes a couple of minutes on iPhone.'],
-  ['Share one link', 'Send it wherever your group talks, or print the QR card for the break room or the inside of a real card.'],
-  ['Everyone adds privately', 'A note, photos, a voice note or a video, from any phone or computer. No account, no app.'],
-  ['They open it on the day', 'It stays sealed until then. They press and hold the seal, and the entries open one at a time.'],
+/** A cover drawn as the app draws it. `photo` names a picture in public/site/photos (640 by 800
+ *  and half that), cut from Unsplash under its free licence; the source is noted beside each. */
+export interface Cover { photo: string; alt: string; name: string; from: string; message: string; mark?: string }
+
+/** Screens from the iOS app (design/v2/app, made with the mock store), in public/site/app at 480
+ *  by 1044 and half that. Alt text says what each shows. */
+export const Screens = {
+  create: 'The Sendoff app asking “Who are we sending off?”, with a place for their photo, their name and who it is from.',
+  share: 'The share screen: a QR code and a link for Jo, with Share link and Save QR buttons.',
+  contribute: 'Adding to a Sendoff: “Write something only Jo will read”, with prompts, and Photo, Voice and Video buttons.',
+  sealed: 'A sealed Sendoff for Maria Reyes: her photo blurred behind the seal, and “Press and hold the seal”.',
+  note: 'A written entry, opened: a note to Maria from her manager, Dan Okafor.',
+  voice: 'A voice note, opened: a waveform, a play button and the words “you were the only one who learned my kids’ names.”',
+  photo: 'A photo entry, opened: the Wednesday lunch crew around a long table.',
+} as const;
+export type Screen = keyof typeof Screens;
+
+/** The same four steps on every occasion page, each beside its screen. */
+export const Steps: [name: string, detail: string, screen: Screen][] = [
+  ['Start it in the app', 'Who it is for, a photo if you like, and when it opens: on a date, or when you say. It takes a couple of minutes on iPhone.', 'create'],
+  ['Share one link', 'Send it wherever your group talks, or print the QR card for the break room or the inside of a real card.', 'share'],
+  ['Everyone adds privately', 'A note, photos, a voice note or a video, from any phone or computer. No account, no app.', 'contribute'],
+  ['They open it on the day', 'It stays sealed until then. They press and hold the seal, and the entries open one at a time.', 'sealed'],
 ];
 
-export const Media: [icon: 'doc' | 'photo' | 'voice' | 'video', name: string, detail: string][] = [
-  ['doc', 'A note', 'Written for one reader, not the room.'],
-  ['photo', 'Photos', 'Up to six with each entry.'],
-  ['voice', 'A voice note', 'Up to two minutes. The part people replay.'],
-  ['video', 'A video', 'Up to a minute, from wherever they are.'],
+/** What an entry can hold, each shown as it opens. */
+export const Entries: [name: string, detail: string, screen: Screen][] = [
+  ['A note', 'Written for one reader, not the room.', 'note'],
+  ['A voice note', 'Up to two minutes. The part people replay.', 'voice'],
+  ['Photos and video', 'Up to six photos with each entry, or a minute of video.', 'photo'],
 ];
 
 /** Questions every occasion page answers, after its own. */
@@ -124,7 +141,8 @@ export const OccasionPages: OccasionPage[] = [
     eyebrow: 'Retirement',
     headline: ['Everyone’s thank-you,', 'sealed until the last day.'],
     lede: 'The card that goes round the office reaches half the building, and most of it says “Enjoy it!” Sendoff gathers what people actually want to say, from everyone who worked with them, and keeps it sealed until the day they leave.',
-    card: { initial: 'M', name: 'Maria Reyes', from: 'From 42 colleagues', opens: 'Opens Friday at 4' },
+    // The app's demo photo for Maria (src/lib/mock.ts), so the cover matches the screens.
+    cover: { photo: 'retirement', alt: 'Maria Reyes, sitting by a window in a patterned blouse.', name: 'Maria Reyes', from: 'From the whole fourth floor', message: 'Thirty-one years. We tried to fit it in here.' },
     story: [
       { heading: 'Everyone who worked with them', paragraphs: [
         'A retirement reaches further than the current team. Send the link to the people who trained them, the ones who moved on years ago, the client who always asked for them by name. They add from any phone or computer, with no account and no app.',
@@ -146,7 +164,8 @@ export const OccasionPages: OccasionPage[] = [
     eyebrow: 'Graduation',
     headline: ['Advice for what’s next,', 'from everyone behind them.'],
     lede: 'Grandparents three states away, the fourth-grade teacher, the coach, the friends they are about to leave behind. Each adds something privately, and the graduate opens it all on graduation day.',
-    card: { initial: 'J', name: 'Jordan Ellis', from: 'From 27 family and friends', opens: 'Opens on graduation day' },
+    // Cole Keister, unsplash.com/photos/SRs7zDrj150
+    cover: { photo: 'graduation', alt: 'Jordan in a black gown with a green hood, smiling, outdoors.', name: 'Jordan Ellis', from: 'From your family and friends', message: 'For the next chapter, from everyone who saw this one.' },
     story: [
       { heading: 'Before everyone scatters', paragraphs: [
         'Graduation sends people in every direction. Sendoff gathers them first: one link, sent to the family group chat and old teachers alike, and everyone adds a note, photos, a voice note or a minute of video from wherever they are.',
@@ -168,7 +187,8 @@ export const OccasionPages: OccasionPage[] = [
     eyebrow: 'Leaving a team',
     headline: ['Give them something', 'human to take with them.'],
     lede: 'A new job, a move, the end of a contract. The farewell thread scrolls away by Monday and the e-card gets signed “Good luck!!” forty times. Sendoff collects what people would say if no one else were reading, and keeps it sealed until the last day.',
-    card: { initial: 'P', name: 'Priya Nair', from: 'From the platform team', opens: 'Opens on the last day' },
+    // The app's demo photo for Jo (src/lib/mock.ts), so the cover matches the screens.
+    cover: { photo: 'farewell', alt: 'Jo in profile, wearing glasses, against green trees.', name: 'Jo Lindqvist', from: 'From the platform team', message: 'The standup will not be the same.' },
     story: [
       { heading: 'Written for one reader', paragraphs: [
         'On a shared board everyone reads everyone else, so people write for the room. In a Sendoff only the person leaving and the organizer read the entries. People who add cannot see each other’s unless they choose to, and what they write changes because of it.',
@@ -189,7 +209,8 @@ export const OccasionPages: OccasionPage[] = [
     eyebrow: 'Teacher appreciation',
     headline: ['Thank a teacher', 'in their students’ words.'],
     lede: 'For Teacher Appreciation Week or the last day of school. A class parent starts it, every family adds something, and the teacher opens a year of thank-yous, one at a time.',
-    card: { initial: 'P', name: 'Mr. Patel', from: 'From Room 12 and their families', opens: 'Opens on the last day of school' },
+    // litoon dev, unsplash.com/photos/qF9e4EHGCVQ
+    cover: { photo: 'teacher', alt: 'Mr. Patel, smiling, in his classroom with the children’s paintings behind him.', name: 'Mr. Patel', from: 'From Room 14 and their families', message: 'You made the hard days easy to come back to.' },
     story: [
       { heading: 'Easy for every family', paragraphs: [
         'Send one link in the class group chat, or print the QR card for the classroom door. Parents add from their phone in a couple of minutes, with no account and no app.',
@@ -211,7 +232,8 @@ export const OccasionPages: OccasionPage[] = [
     eyebrow: 'Military sendoff',
     headline: ['From the whole unit,', 'wherever everyone is now.'],
     lede: 'A PCS, a separation, a retirement, a change of command. The people who served with them are spread across bases and time zones. Sendoff gives them one link to add to, and keeps it sealed until the day.',
-    card: { initial: 'R', name: 'First Sergeant Rivera', from: 'From 64 people in the company', opens: 'Opens at the change of command' },
+    // Glenn Guiao, unsplash.com/photos/fmRr6IvLbv8
+    cover: { photo: 'military', alt: 'Chief Rivera saluting in a white dress cap, seen from behind.', name: 'Chief Rivera', from: 'From the whole command', message: 'Fair winds and following seas.' },
     story: [
       { heading: 'Everyone who served with them', paragraphs: [
         'Send the link to the current unit and the ones before it. People add from their phone in a couple of minutes: a note, photos from the field, a voice note, a short video.',
@@ -233,7 +255,8 @@ export const OccasionPages: OccasionPage[] = [
     eyebrow: 'End of season',
     headline: ['Thank you, coach,', 'from the whole team.'],
     lede: 'The best game, the worst bus ride, the halftime talk nobody forgot. Players and parents add their part privately, and the coach opens it at the end-of-season party.',
-    card: { initial: 'D', name: 'Coach Dana', from: 'From the team and their families', opens: 'Opens at the season dinner' },
+    // Will Colavito, unsplash.com/photos/O78ytdEmicY
+    cover: { photo: 'season-end', alt: 'Coach Dana on the sideline in a cap and team shirt.', name: 'Coach Dana', from: 'From the team and their families', message: 'You taught us more than the playbook.' },
     story: [
       { heading: 'Every player, not just the captains', paragraphs: [
         'Send one link to the team chat. Players record a voice note or a short video, parents add the photos from the sideline, and nobody needs an account or the app.',
