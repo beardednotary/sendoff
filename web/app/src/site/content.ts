@@ -9,10 +9,10 @@ import type { Occasion } from '../lib/types';
 export const Site = {
   origin: 'https://sendoffapp.com',
   email: 'support@sendoffapp.com',
-  /** The App Store name, which carries the search terms. */
-  appName: 'Memory Book & eCard - Sendoff',
-  /** The App Store page and its numeric id, once the app is live. Until then the pages say
-   *  "Coming soon to the App Store"; with them set, they link to it and Safari shows its banner. */
+  /** The name in App Store Connect. */
+  appName: 'Sendoff - Group Memory Book',
+  /** The App Store page and its numeric id (6770213680), once the app is live. Until then the pages
+   *  say "Coming soon to the App Store"; with them set, they link to it and Safari shows its banner. */
   appStoreUrl: null as string | null,
   appStoreId: null as string | null,
 };
@@ -24,9 +24,9 @@ export interface Faq { q: string; a: string }
 export const PersonalPrices: { name: string; price: string; detail: string }[] = [
   { name: 'Free', price: '$0', detail: 'Up to 10 entries.' },
   { name: 'Sendoff', price: '$8.99', detail: 'Up to 100 entries.' },
-  { name: 'Sendoff Plus', price: '$14.99', detail: 'Unlimited entries, and every paid look.' },
-  { name: 'Pack of 5', price: '$39', detail: 'Five Sendoffs bought ahead, for people who run a few a year.' },
-  { name: 'Pack of 10', price: '$69', detail: 'Ten, for the office manager who runs them all.' },
+  { name: 'Sendoff Plus', price: '$14.99', detail: 'Unlimited entries, every paid look, and a song from Apple Music.' },
+  { name: 'Pack of 5', price: '$34.99', detail: 'Five Sendoffs bought ahead, $7 each, for people who run a few a year.' },
+  { name: 'Pack of 10', price: '$59.99', detail: 'Ten at $6 each, for the office manager who runs them all.' },
   { name: 'A paid look', price: '$4.99', detail: 'Gold Leaf, Darkroom or Field Day, yours for every Sendoff.' },
 ];
 
@@ -50,7 +50,7 @@ export const Tiers: Tier[] = [
 ];
 
 export const TeamIncludes: [string, string][] = [
-  ['Unlimited Sendoffs at the Plus level', 'Unlimited entries in each one, and every paid look.'],
+  ['Unlimited Sendoffs at the Plus level', 'Unlimited entries in each one, every paid look, and a song from Apple Music.'],
   ['Your logo on the cover', 'Every Sendoff your team starts carries your name and logo.'],
   ['A roster', 'Anyone on it can start a Sendoff from the iPhone app, with nothing to buy or expense.'],
   ['Admins', 'They see every Sendoff your team has running and who started it. What people wrote stays between the organizer and the person it is for.'],
