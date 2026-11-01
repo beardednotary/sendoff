@@ -69,6 +69,9 @@ struct RevealView: View {
     /// The cover is arriving from the seal, so its words rise into place under the photo
     /// instead of turning in like a page.
     @State private var fromSeal = false
+    @State private var pdf: SharedFile?
+    @State private var makingPDF = false
+    @State private var pdfError = false
 
     private var theme: SendoffTheme { ThemeCatalog.theme(sendoff.themeID) }
     private var canOpen: Bool { preview || sendoff.isOpen || (sendoff.opensAt.map { $0 <= .now } ?? false) }
@@ -312,11 +315,28 @@ struct RevealView: View {
                 PrimaryButton(title: "Read it again", systemImage: "arrow.counterclockwise") {
                     withAnimation(Motion.turn) { stage = .cover }
                 }
-                SecondaryButton(title: "Save as PDF", systemImage: "doc") { /* ImageRenderer export, phase 2 */ }
+                SecondaryButton(title: makingPDF ? "Making the PDF\u{2026}" : "Save as PDF", systemImage: "doc") {
+                    Task { await savePDF() }
+                }
+                .disabled(makingPDF)
             }
             .padding(.bottom, 12)
         }
         .padding(.horizontal, 20)
+        .sheet(item: $pdf) { f in ShareSheet(items: [f.url]).presentationDetents([.medium, .large]) }
+        .alert("The PDF didn\u{2019}t save", isPresented: $pdfError) {
+            Button("OK") {}
+        } message: { Text("Check your connection and try again.") }
+    }
+
+    private func savePDF() async {
+        makingPDF = true
+        defer { makingPDF = false }
+        do {
+            pdf = SharedFile(url: try await KeepsakePDF.make(sendoff: sendoff, entries: entries))
+        } catch {
+            pdfError = true
+        }
     }
 
     // MARK: Behavior
