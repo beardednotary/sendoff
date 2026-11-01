@@ -212,6 +212,24 @@ final class SupabaseStore: SendoffStore {
         }
     }
 
+    func setCover(_ jpeg: URL, for sendoffID: UUID) async throws {
+        let data = try Data(contentsOf: jpeg)
+        struct Row: Decodable { var recipient_photo_path: String? }
+        let before: Row? = try? await client.from("sendoffs").select("recipient_photo_path")
+            .eq("id", value: sendoffID).single().execute().value
+        let path = StoragePath.cover(sendoffID)
+        let uploads = client.storage.from("uploads")
+        try await uploads.upload(path, data: data, options: FileOptions(contentType: "image/jpeg"))
+        // Once it has opened the row no longer changes, and RLS turns the update into a no-op.
+        let after: [Row] = try await client.from("sendoffs").update(["recipient_photo_path": path])
+            .eq("id", value: sendoffID).select("recipient_photo_path").execute().value
+        guard after.first?.recipient_photo_path == path else {
+            _ = try? await uploads.remove(paths: [path])
+            throw StoreError.notAllowed
+        }
+        if let old = before?.recipient_photo_path, old != path { _ = try? await uploads.remove(paths: [old]) }
+    }
+
     func create(_ d: SendoffDraft) async throws -> Sendoff {
         guard isSignedIn, let uid = currentUserID else { throw StoreError.notAllowed }
         struct Insert: Encodable {

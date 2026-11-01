@@ -23,6 +23,8 @@ protocol SendoffStore: AnyObject, Observable {
     func mySendoffs() async throws -> [Sendoff]
     func create(_ draft: SendoffDraft) async throws -> Sendoff
     func update(_ sendoff: Sendoff) async throws -> Sendoff
+    /// Replaces the cover with a framed JPEG on disk, while the Sendoff has not opened.
+    func setCover(_ jpeg: URL, for sendoffID: UUID) async throws
     func setState(_ id: UUID, _ state: SendoffState) async throws
     func contributions(for sendoffID: UUID) async throws -> [Contribution]
     func setStatus(_ contributionID: UUID, _ status: ContributionStatus) async throws
@@ -161,6 +163,11 @@ final class MockStore: SendoffStore {
         sendoffs.insert(s, at: 0)
         contributionsByID[s.id] = []
         return s
+    }
+
+    func setCover(_ jpeg: URL, for sendoffID: UUID) async throws {
+        guard let i = sendoffs.firstIndex(where: { $0.id == sendoffID }), sendoffs[i].state != .open else { throw StoreError.notAllowed }
+        sendoffs[i].recipientPhotoURL = jpeg
     }
 
     func update(_ sendoff: Sendoff) async throws -> Sendoff {

@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 /// The organizer tends a Sendoff: share, watch entries arrive, review, reorder, seal, open.
 struct SendoffDetailView: View {
@@ -14,6 +15,10 @@ struct SendoffDetailView: View {
     @State private var showPaywall = false
     @State private var showReorder = false
     @State private var confirmOpen = false
+    @State private var pickingPhoto = false
+    @State private var photoItem: PhotosPickerItem?
+    @State private var framing: PhotoToFrame?
+    @State private var coverError: String?
 
     var body: some View {
         if let s = sendoff {
@@ -58,6 +63,28 @@ struct SendoffDetailView: View {
             .fullScreenCover(isPresented: $showPreview) {
                 RevealView(sendoff: previewSendoff(s), contributions: approved, preview: true)
             }
+            .photosPicker(isPresented: $pickingPhoto, selection: $photoItem, matching: .images)
+            .onChange(of: photoItem) { _, item in
+                guard let item else { return }
+                photoItem = nil
+                Task {
+                    if let data = try? await item.loadTransferable(type: Data.self), let image = CoverPhoto.image(from: data) {
+                        framing = PhotoToFrame(image: image)
+                    }
+                }
+            }
+            .fullScreenCover(item: $framing) { f in
+                PhotoFramer(image: f.image) { cropped in
+                    framing = nil
+                    Task { await saveCover(cropped, for: s.id) }
+                } onCancel: {
+                    framing = nil
+                }
+                .appTheme()
+            }
+            .alert("Couldn't change the photo", isPresented: Binding(get: { coverError != nil }, set: { if !$0 { coverError = nil } })) {
+                Button("OK") {}
+            } message: { Text(coverError ?? "") }
             .confirmationDialog("Open it now?", isPresented: $confirmOpen, titleVisibility: .visible) {
                 if purchases.covers(s) {
                     Button("Open for \(s.recipientFirstName)") { Task { await setState(.open) } }
@@ -246,6 +273,15 @@ struct SendoffDetailView: View {
     private func menu(_ s: Sendoff) -> some View {
         Menu {
             Button { showPreview = true } label: { Label("Preview the reveal", systemImage: "eye") }
+            // The cover can change until it opens; after that it is what they saw.
+            if s.state != .open {
+                if let url = s.recipientPhotoURL {
+                    Button { Task { await frame(url) } } label: { Label("Adjust cover photo", systemImage: "crop") }
+                }
+                Button { pickingPhoto = true } label: {
+                    Label(s.recipientPhotoURL == nil ? "Add a cover photo" : "Change cover photo", systemImage: "photo")
+                }
+            }
             if approved.count > 1 {
                 Button { showReorder = true } label: { Label("Reorder entries", systemImage: "arrow.up.arrow.down") }
             }
@@ -265,6 +301,26 @@ struct SendoffDetailView: View {
             Image(systemName: "ellipsis")
         }
         .accessibilityLabel("More")
+    }
+
+    /// Reframes the photo already on the cover.
+    private func frame(_ url: URL) async {
+        let data: Data? = url.isFileURL ? try? Data(contentsOf: url) : try? await URLSession.shared.data(from: url).0
+        guard let data, let image = CoverPhoto.image(from: data) else {
+            coverError = "The photo didn't load. Check your connection and try again."
+            return
+        }
+        framing = PhotoToFrame(image: image)
+    }
+
+    private func saveCover(_ image: UIImage, for id: UUID) async {
+        do {
+            guard let file = CoverPhoto.jpegFile(image) else { throw StoreError.notAllowed }
+            try await store.setCover(file, for: id)
+            await load()
+        } catch {
+            coverError = "That didn't save. Check your connection and try again."
+        }
     }
 
     private func countLine(_ s: Sendoff) -> String {

@@ -14,6 +14,7 @@ struct CreateFlow: View {
     @State private var step: Step = .who
     @State private var tracks: [MusicTrack] = []
     @State private var photoItem: PhotosPickerItem?
+    @State private var framing: PhotoToFrame?
     @State private var saving = false
     @State private var error: String?
 
@@ -49,6 +50,15 @@ struct CreateFlow: View {
         } message: { Text(error ?? "") }
         .task { tracks = (try? await store.tracks()) ?? [] }
         .onChange(of: photoItem) { _, item in Task { await loadPhoto(item) } }
+        .fullScreenCover(item: $framing) { f in
+            PhotoFramer(image: f.image) { cropped in
+                if let url = CoverPhoto.jpegFile(cropped) { draft.recipientPhoto = url }
+                framing = nil
+            } onCancel: {
+                framing = nil
+            }
+            .appTheme()
+        }
     }
 
     // MARK: Chrome
@@ -118,7 +128,7 @@ struct CreateFlow: View {
             PhotosPicker(selection: $photoItem, matching: .images) {
                 ZStack(alignment: .bottomLeading) {
                     if let url = draft.recipientPhoto {
-                        Color.clear.overlay(RemoteImage(url: url).scaledToFill()).clipped()
+                        Color.clear.overlay(alignment: .coverFocus) { RemoteImage(url: url).scaledToFill() }.clipped()
                     } else {
                         ZStack {
                             theme.raisedPaperColor
@@ -320,20 +330,13 @@ struct CreateFlow: View {
 
     // MARK: Actions
 
-    /// Library photos arrive as HEIC or full-size JPEG. The cover never needs more than 1600 points
-    /// on the long side, so it is redrawn smaller and saved as JPEG before anything is uploaded.
+    /// A picked photo goes to the framer first; only the framed part is ever uploaded.
     private func loadPhoto(_ item: PhotosPickerItem?) async {
         guard let item, let data = try? await item.loadTransferable(type: Data.self),
-              let image = UIImage(data: data) else { return }
-        let scale = min(1, 1600 / max(image.size.width, image.size.height))
-        let size = CGSize(width: (image.size.width * scale).rounded(), height: (image.size.height * scale).rounded())
-        let format = UIGraphicsImageRendererFormat.default()
-        format.scale = 1
-        let resized = UIGraphicsImageRenderer(size: size, format: format).image { _ in image.draw(in: CGRect(origin: .zero, size: size)) }
-        guard let jpeg = resized.jpegData(compressionQuality: 0.82) else { return }
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".jpg")
-        try? jpeg.write(to: url)
-        draft.recipientPhoto = url
+              let image = CoverPhoto.image(from: data) else { return }
+        // Cleared so picking the same photo again still reaches onChange.
+        photoItem = nil
+        framing = PhotoToFrame(image: image)
     }
 
     private func create() async {

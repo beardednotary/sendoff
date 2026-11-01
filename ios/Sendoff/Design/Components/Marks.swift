@@ -222,7 +222,7 @@ struct CoverImage: View {
         if let url = sendoff.recipientPhotoURL {
             // Fill whatever frame it is given, never more: a bare scaledToFill widens its parent.
             Color.clear
-                .overlay(RemoteImage(url: url).scaledToFill())
+                .overlay(alignment: .coverFocus) { RemoteImage(url: url).scaledToFill() }
                 .clipped()
         } else {
             GeometryReader { g in
@@ -237,6 +237,19 @@ struct CoverImage: View {
             }
         }
     }
+}
+
+extension Alignment {
+    /// Where a cover photo is cropped from when its frame is a different shape: centred across,
+    /// and a quarter of the way down, where faces usually are. The web's `center 25%`.
+    static let coverFocus = Alignment(horizontal: .center, vertical: .quarterDown)
+}
+
+extension VerticalAlignment {
+    private enum QuarterDown: AlignmentID {
+        static func defaultValue(in d: ViewDimensions) -> CGFloat { d.height * 0.25 }
+    }
+    static let quarterDown = VerticalAlignment(QuarterDown.self)
 }
 
 /// Darkens the bottom of a photo so white type reads on it.

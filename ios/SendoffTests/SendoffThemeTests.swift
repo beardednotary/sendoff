@@ -159,6 +159,18 @@ final class ModelTests: XCTestCase {
         for o in Occasion.allCases { XCTAssertGreaterThanOrEqual(o.prompts.count, 3, o.title) }
     }
 
+    func testFramerCropsWhatTheFrameShows() {
+        // A 1000×2000 photo filling a 300×400 frame: 0.3 points per pixel, 600 points tall.
+        let size = CGSize(width: 1000, height: 2000), frame = CGSize(width: 300, height: 400)
+        XCTAssertEqual(PhotoFramer.cropRect(imageSize: size, frame: frame, zoom: 1, offset: .zero),
+                       CGRect(x: 0, y: 333, width: 1000, height: 1334), "centred")
+        XCTAssertEqual(PhotoFramer.cropRect(imageSize: size, frame: frame, zoom: 1, offset: CGSize(width: 0, height: 100)),
+                       CGRect(x: 0, y: 0, width: 1000, height: 1334), "dragged down to the top edge")
+        let zoomed = PhotoFramer.cropRect(imageSize: size, frame: frame, zoom: 2, offset: CGSize(width: 150, height: 0))
+        XCTAssertEqual(zoomed, CGRect(x: 0, y: 666, width: 500, height: 668), "zoomed in and dragged to the left edge")
+        XCTAssertEqual(zoomed.width / zoomed.height, 3 / 4, accuracy: 0.01, "always the frame's shape")
+    }
+
     func testEveryPlusLookFallsBackToAnIncludedOne() {
         for t in ThemeCatalog.premium { XCTAssertFalse(ThemeCatalog.theme(t.id.freeAlternative).premium, t.name) }
         for t in ThemeCatalog.included { XCTAssertEqual(t.id.freeAlternative, t.id, t.name) }
