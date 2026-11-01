@@ -1,7 +1,7 @@
 // sendoffapp.com on Cloudflare: the built site served as static assets, with no Worker code.
 // Deploy with `npm run deploy`. public/_headers still applies. Public pages are files (/teams is
-// teams.html). Private links go to the app: public/_redirects rewrites /s/* to app.html, and only
-// that, because Cloudflare applies redirect rules even to real files. Anything else that matches no
+// teams.html). Private links go to the app: public/_redirects rewrites /s/* to /app (app.html), and
+// only that, because Cloudflare applies redirect rules even to real files. Anything else that matches no
 // file gets 404.html with a 404 status.
 {
   "name": "sendoffapp",
