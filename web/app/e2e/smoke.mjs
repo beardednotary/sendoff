@@ -250,6 +250,12 @@ await step('site pages arrive as complete HTML', async () => {
     for (const t of ['Organization', 'MobileApplication', 'FAQPage']) need(types.includes(t), `JSON-LD ${t}`);
     const css = html.match(/<link rel="stylesheet" href="([^"]+)">/)[1];
     need((await fetch(base + css)).ok, `stylesheet ${css}`);
+    // Every picture: described, sized so nothing jumps as it loads, and every file it names served.
+    const imgs = [...html.matchAll(/<img ([^>]+)>/g)].map((m) => m[1]);
+    need(imgs.length >= (p === '/teams' ? 1 : 8), `pictures: ${imgs.length}`);
+    for (const img of imgs) need(/alt="[^"]{10,}"/.test(img) && /width="\d+"/.test(img) && /height="\d+"/.test(img), `alt and size: ${img}`);
+    const files = new Set([...html.matchAll(/(?:src|srcset)="([^"]+)"/g)].flatMap((m) => m[1].split(',').map((f) => f.trim().split(' ')[0])));
+    for (const file of files) need((await fetch(base + file)).ok, `image ${file}`);
   }
 });
 await step('teams page: plans and a way to reach us', async () => {
