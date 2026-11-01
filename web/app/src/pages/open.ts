@@ -309,6 +309,10 @@ class Reveal {
     if (voice) article.appendChild(this.voiceView(voice));
     if (e.body) article.appendChild(h('p', { class: `entry ${entrySize(e.body)}` }, e.body));
     article.appendChild(h('p', { class: 'sig' }, h('b', {}, e.authorName), e.authorRelationship && h('span', {}, `· ${e.authorRelationship}`)));
+    // The organizer can hide an entry themselves; the recipient reports it to us.
+    article.appendChild(h('a', { class: 'report caption', href: reportLink(this.slug, e), onclick: (ev: Event) => {
+      if (!window.confirm('Report this entry? Tell us what’s wrong and we’ll look into it. Nobody else is told who reported it.')) ev.preventDefault();
+    } }, 'Report'));
 
     host.append(article);
     if (!matchMedia('(prefers-reduced-motion: reduce)').matches && document.documentElement.dataset.motion !== 'fade') {
@@ -474,4 +478,10 @@ function lightbox(url: string): void {
 
 function pause(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, Math.max(0, ms)));
+}
+
+/** An email to support, already naming the Sendoff and the entry so we can find it. */
+function reportLink(slug: string, e: Contribution): string {
+  const body = `Sendoff: ${slug}\nEntry: ${e.id} (from ${e.authorName})\n\nWhat's wrong with it?\n`;
+  return `mailto:support@sendoffapp.com?subject=${encodeURIComponent('Report an entry')}&body=${encodeURIComponent(body)}`;
 }

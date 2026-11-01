@@ -14,6 +14,7 @@ struct PaywallView: View {
 
     @State private var busy: Plan?
     @State private var buyingLook = false
+    @State private var buyingPack: ProductID?
     @State private var error: String?
 
     private var first: String { sendoff.recipientFirstName }
@@ -52,6 +53,8 @@ struct PaywallView: View {
                            let lookProduct = ProductID.theme(sendoff.themeID) {
                             lookAlone(lookProduct)
                         }
+
+                        if sendoff.plan < .plus { packs }
 
                         Rule()
 
@@ -102,7 +105,7 @@ struct PaywallView: View {
                 SecondaryButton(title: "Get \(chosenTheme.name)\(price.map { ", \($0)" } ?? "")", fill: false) {
                     Task { await buyLook(product) }
                 }
-                .disabled(busy != nil || price == nil)
+                .disabled(busy != nil || buyingPack != nil || price == nil)
             }
         }
     }
@@ -115,6 +118,41 @@ struct PaywallView: View {
             case .completed: dismiss()
             case .pending: error = PurchaseError.pending.localizedDescription
             case .cancelled: break
+            }
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    /// For office managers and team leads: several Sendoffs at once, as credits.
+    private var packs: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Doing a few of these? Buy several at once. One goes on this Sendoff, and the rest wait for your next ones.")
+                .font(Typeface.caption).foregroundStyle(theme.mutedInkColor)
+                .fixedSize(horizontal: false, vertical: true)
+            packButton(.pack5, title: "5 Sendoffs")
+            packButton(.pack10, title: "10 Sendoffs")
+        }
+    }
+
+    @ViewBuilder
+    private func packButton(_ id: ProductID, title: String) -> some View {
+        let price = purchases.price(id)
+        if buyingPack == id {
+            ProgressView().tint(theme.inkColor).frame(maxWidth: .infinity).frame(height: 50)
+        } else {
+            SecondaryButton(title: price.map { "\(title), \($0)" } ?? title, fill: false) { Task { await buyPack(id) } }
+                .disabled(busy != nil || buyingLook || buyingPack != nil || price == nil)
+        }
+    }
+
+    private func buyPack(_ id: ProductID) async {
+        buyingPack = id
+        defer { buyingPack = nil }
+        do {
+            if let updated = try await purchases.buyPack(id, for: sendoff) {
+                onUpgraded(updated)
+                dismiss()
             }
         } catch {
             self.error = error.localizedDescription
@@ -156,7 +194,7 @@ struct PaywallView: View {
                     ProgressView().tint(theme.inkColor).frame(maxWidth: .infinity).frame(height: 50)
                 } else {
                     PrimaryButton(title: title) { Task { await choose(plan) } }
-                        .disabled(busy != nil || buyingLook || (price == nil && credit == nil))
+                        .disabled(busy != nil || buyingLook || buyingPack != nil || (price == nil && credit == nil))
                 }
             }
         }
