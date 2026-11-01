@@ -347,14 +347,18 @@ button { font: inherit; color: inherit; }
 .cover-screen .begin { justify-self: end; display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 16px; margin-top: 16px; border-radius: 999px; background: #262624; font-size: 14px; font-weight: 600; }
 .cover-screen .begin svg { width: 14px; height: 14px; }
 
-/* Rows of screens with their words: a strip to swipe at phone width, a grid on a desktop. */
-.reel { margin: 0 -20px; padding: 2px 20px 8px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-inline: 20px; scrollbar-width: none; }
-.reel::-webkit-scrollbar { display: none; }
-.reel ol, .reel ul { list-style: none; margin: 0; padding: 0; display: grid; grid-auto-flow: column; grid-auto-columns: min(62vw, 240px); gap: 16px; }
-.reel li { display: grid; gap: 18px; align-content: start; scroll-snap-align: start; }
-.reel h3 { display: flex; gap: 10px; align-items: baseline; margin-bottom: 6px; }
-.reel .n { color: var(--faint); }
-.reel p { font-size: 15px; line-height: 1.5; color: var(--muted); margin: 0; }
+/* Screens with their words: one above the next on a phone, two across on a small tablet, a row
+   on a desktop. */
+.screens { list-style: none; margin: 0; padding: 0; display: grid; gap: 48px; }
+.screens li { display: grid; gap: 18px; align-content: start; }
+.screens .screen { width: min(68vw, 260px); }
+.screens h3 { display: flex; gap: 10px; align-items: baseline; margin-bottom: 6px; }
+.screens .n { color: var(--faint); }
+.screens p { font-size: 15px; line-height: 1.5; color: var(--muted); margin: 0; }
+@media (min-width: 560px) {
+  .screens { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 48px 32px; }
+  .screens .screen { width: auto; max-width: 260px; }
+}
 
 .sect { display: grid; gap: 24px; padding: 56px 0; border-top: 1px solid var(--rule); }
 .sect > header { display: grid; gap: 10px; align-content: start; }
@@ -401,8 +405,8 @@ body > .site-foot { margin-top: 24px; padding-top: 32px; padding-bottom: max(40p
   .sect { grid-template-columns: 260px minmax(0, 1fr); gap: 48px; padding: 72px 0; }
   .sect.wide { grid-template-columns: minmax(0, 1fr); gap: 40px; }
   .includes { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 36px 40px; }
-  .reel { margin: 0; padding: 0; overflow: visible; }
-  .reel ol, .reel ul { grid-auto-flow: row; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 32px; }
+  .screens { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 32px; }
+  .screens .screen { max-width: none; }
   .tiers { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .closing { padding: 104px 0 40px; }
 }

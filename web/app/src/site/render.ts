@@ -188,13 +188,13 @@ function coverScreen(c: Cover, eyebrow: string): string {
 </figure>`;
 }
 
-/** App screens in a row, each with its words: a strip to swipe on a phone, a grid on a desktop. */
-function reel(label: string, items: [name: string, detail: string, screen: Screen][], numbered: boolean): string {
+/** App screens, each with its words: one above the next on a phone, a row on a desktop. */
+function screenList(items: [name: string, detail: string, screen: Screen][], numbered: boolean): string {
   const list = numbered ? 'ol' : 'ul';
-  return `<div class="reel" role="region" aria-label="${esc(label)}" tabindex="0"><${list}>${items.map(([name, detail, screen], i) => `
+  return `<${list} class="screens">${items.map(([name, detail, screen], i) => `
     <li><figure class="screen">${picture(`app/${screen}`, Screens[screen], SCREEN)}</figure>
       <div><h3 class="name">${numbered ? `<span class="n" aria-hidden="true">${i + 1}</span>` : ''}${esc(name)}</h3><p>${esc(detail)}</p></div></li>`).join('')}
-  </${list}></div>`;
+  </${list}>`;
 }
 
 function intro(eyebrow: string, headline: [string, string], lede: string, action: string, card: string): string {
@@ -226,8 +226,8 @@ function occasionPage(p: OccasionPage, assets: Assets): string {
 
   return shell({ ...p, faq }, assets, [
     intro(p.eyebrow, p.headline, p.lede, getTheApp(), coverScreen(p.cover, occasionTitle(p.occasion))),
-    section('How it works', 'Four steps, one link.', reel('How it works, in the app', Steps, true), undefined, true),
-    section('What goes in', 'More than a signature.', reel('Entries as they open', Entries, false), undefined, true),
+    section('How it works', 'Four steps, one link.', screenList(Steps, true), undefined, true),
+    section('What goes in', 'More than a signature.', screenList(Entries, false), undefined, true),
     ...p.story.map((s) => section(p.eyebrow, s.heading, prose(s.paragraphs))),
     section('Prompts', 'Something to start from.', prompts),
     section('Cost', 'Free to start.', cost),

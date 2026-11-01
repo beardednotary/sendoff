@@ -280,6 +280,24 @@ await step('every page links to the site pages', async () => {
   await page.goto(`${base}/retirement`);
   if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) throw new Error('scrolls sideways at 390');
 });
+await step('site pages at phone width: every screen whole, one above the next', async () => {
+  for (const p of sitePaths) {
+    await page.goto(base + p);
+    const problem = await page.evaluate(() => {
+      const cut = [...document.querySelectorAll('.screen')].find((e) => {
+        const r = e.getBoundingClientRect();
+        return r.left < 0 || r.right > innerWidth;
+      });
+      if (cut) return `“${cut.querySelector('img')?.alt.slice(0, 40)}…” runs off the side`;
+      for (const list of document.querySelectorAll('.screens')) {
+        const tops = [...list.querySelectorAll('.screen')].map((e) => e.getBoundingClientRect());
+        if (tops.some((r, i) => i > 0 && r.top < tops[i - 1].bottom)) return 'screens sit side by side';
+      }
+      return null;
+    });
+    if (problem) throw new Error(`${p}: ${problem}`);
+  }
+});
 
 console.log(errors.length ? `\nPAGE ERRORS:\n${errors.join('\n')}` : '\nno page errors');
 await browser.close();
