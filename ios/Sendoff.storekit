@@ -5,7 +5,7 @@
   ],
   "products" : [
     {
-      "displayPrice" : "9.99",
+      "displayPrice" : "8.99",
       "familyShareable" : false,
       "internalID" : "1000000001",
       "localizations" : [
@@ -20,7 +20,7 @@
       "type" : "Consumable"
     },
     {
-      "displayPrice" : "19.99",
+      "displayPrice" : "14.99",
       "familyShareable" : false,
       "internalID" : "1000000002",
       "localizations" : [
@@ -35,7 +35,7 @@
       "type" : "Consumable"
     },
     {
-      "displayPrice" : "39.00",
+      "displayPrice" : "34.99",
       "familyShareable" : false,
       "internalID" : "1000000003",
       "localizations" : [
@@ -50,7 +50,7 @@
       "type" : "Consumable"
     },
     {
-      "displayPrice" : "69.00",
+      "displayPrice" : "59.99",
       "familyShareable" : false,
       "internalID" : "1000000004",
       "localizations" : [

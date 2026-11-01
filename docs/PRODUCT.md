@@ -162,9 +162,9 @@ web reveal page with `?mode=slideshow` and a timing control. Included in Plus.
 | Tier | Price (hypothesis) | What |
 |---|---|---|
 | Free | $0 | Create, share, collect up to 10 entries, basic preview with a "Made with Sendoff" line on the last page |
-| Sendoff | $9.99 per Sendoff | Up to 100 entries, no footer, 3 included themes, stock music, scheduled reveal, PDF |
-| Sendoff Plus | $19.99 per Sendoff | Unlimited entries, all premium themes, link your music, slideshow mode, video montage |
-| Packs | $39 for 5, $69 for 10 | For office managers and team leads who do this often. Avoids subscription fatigue. |
+| Sendoff | $8.99 per Sendoff | Up to 100 entries, no footer, 3 included looks, stock music, scheduled reveal |
+| Sendoff Plus | $14.99 per Sendoff | Unlimited entries, all Plus looks, link your music (Apple Music). Slideshow mode and the video montage come later, and Plus moves to $19.99 with the montage |
+| Packs | $34.99 for 5, $59.99 for 10 ($7.00 and $6.00 each) | For office managers and team leads who do this often. Avoids subscription fatigue. |
 | Org plan | from $499/yr | Unlimited Sendoffs for a company, branding, roster, Review default, admin seats, Stripe billing |
 | Add-ons | $4.99 to $7.99 | Single premium theme, printed book (cost plus margin) |
 
