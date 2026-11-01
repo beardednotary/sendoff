@@ -76,6 +76,8 @@ export interface OccasionPage {
   occasion: Occasion;
   /** Short name for links. */
   label: string;
+  /** One line for its card on the homepage. */
+  teaser: string;
   title: string;
   description: string;
   eyebrow: string;
@@ -126,14 +128,18 @@ export const CommonFaq: Faq[] = [
   { q: 'Who can read what people write?',
     a: 'Only the person it is for and the organizer. People who add cannot read each other’s entries unless they choose to share theirs with the others who added.' },
   { q: 'What does it cost?',
-    a: 'Starting one and collecting up to 10 entries is free. Sendoff ($8.99) holds up to 100 entries and Sendoff Plus ($14.99) has no limit. The organizer pays once, in the app; nobody who adds to it or opens it pays.' },
+    a: 'Starting one and collecting up to 10 entries is free. Sendoff ($8.99) holds up to 100 entries, and Sendoff Plus ($14.99) has no limit, every Plus look and a song from Apple Music. The organizer pays once, in the app; nobody who adds to it or opens it pays.' },
   { q: 'Can they keep it?',
-    a: 'Yes. After the day it stays theirs to come back to, and they can print it or save it as a PDF.' },
+    a: 'Yes. After the day it stays theirs to come back to, and they can print it or save it as a PDF, on every plan.' },
 ];
+
+/** Said wherever Plus's song is, because a song is not always the whole song. */
+export const SongNote = 'The song plays in full in the app for Apple Music subscribers, and as a 30-second preview everywhere else.';
 
 export const OccasionPages: OccasionPage[] = [
   {
     path: '/retirement',
+    teaser: 'A career’s worth of thank‑yous.',
     occasion: 'retirement',
     label: 'Retirement',
     title: 'Group retirement card and memory book · Sendoff',
@@ -157,6 +163,7 @@ export const OccasionPages: OccasionPage[] = [
   },
   {
     path: '/graduation',
+    teaser: 'Advice for what’s next.',
     occasion: 'graduation',
     label: 'Graduation',
     title: 'Graduation memory book from family and friends · Sendoff',
@@ -180,6 +187,7 @@ export const OccasionPages: OccasionPage[] = [
   },
   {
     path: '/farewell',
+    teaser: 'For a colleague moving on.',
     occasion: 'farewell',
     label: 'Leaving a job',
     title: 'Farewell card for a colleague who is leaving · Sendoff',
@@ -202,6 +210,7 @@ export const OccasionPages: OccasionPage[] = [
   },
   {
     path: '/teacher-appreciation',
+    teaser: 'A year of thank‑yous from the class.',
     occasion: 'teacher',
     label: 'Teacher appreciation',
     title: 'Teacher appreciation gift from the whole class · Sendoff',
@@ -225,6 +234,7 @@ export const OccasionPages: OccasionPage[] = [
   },
   {
     path: '/military',
+    teaser: 'From the whole unit, wherever they are.',
     occasion: 'military',
     label: 'Military farewell',
     title: 'Military farewell gift from the unit · Sendoff',
@@ -248,6 +258,7 @@ export const OccasionPages: OccasionPage[] = [
   },
   {
     path: '/season-end',
+    teaser: 'Thank you, coach.',
     occasion: 'season_end',
     label: 'End of season',
     title: 'End of season gift for a coach from the team · Sendoff',
@@ -283,11 +294,44 @@ export const TeamsPage = {
   description: 'An annual plan for companies, schools and teams: unlimited Sendoffs, your logo on the cover, admins, a roster and one invoice. Group cards that stay private.',
 };
 
-/** Every page in the sitemap, in order. The landing, privacy and support pages are rendered by
- *  the app (src/pages) but are public too. */
-export const PublicPaths: string[] = ['/', TeamsPage.path, ...OccasionPages.map((p) => p.path), '/support', '/privacy'];
+export const HomePage = {
+  path: '/',
+  title: 'Sendoff · Group card and memory book, sealed until the day',
+  description: 'Everyone adds a note, photos, a voice note or a video privately. One person opens it, on the day. For retirements, graduations, farewells and thank-yous.',
+};
 
-/** The links in every page's footer, the app's included. */
+/** Why it is different, on the homepage. Icons are from src/lib/dom.ts. */
+export const Benefits: [icon: 'lock' | 'envelope' | 'voice' | 'link' | 'music' | 'download', name: string, detail: string][] = [
+  ['lock', 'Private by design', 'Only the person it is for and the organizer read the entries, so people write what they mean, not what reads well to the room.'],
+  ['envelope', 'Sealed until the day', 'It opens on the date you set, or when you say. Until then it is an envelope, not a board everyone scrolls.'],
+  ['voice', 'Voices, not just signatures', 'A voice note or a minute of video carries what a signature cannot.'],
+  ['link', 'Nothing to install', 'Everyone adds from one link or a QR code, in any browser, with no account.'],
+  ['music', 'Opened like a letter', 'One entry at a time, with a song from Apple Music on Plus.'],
+  ['download', 'Theirs to keep', 'They can come back to it, print it or save it as a PDF, on every plan.'],
+];
+
+/** The three plans on the homepage; the rest (packs, Plus looks on their own) are in PersonalPrices. */
+export const PlanTeasers: { name: string; price: string; per?: string; size: string; detail: string }[] = [
+  { name: 'Free', price: '$0', size: 'Up to 10 entries', detail: 'Start one and see it through.' },
+  { name: 'Sendoff', price: '$8.99', per: 'once', size: 'Up to 100 entries', detail: 'Enough for most teams and families.' },
+  { name: 'Sendoff Plus', price: '$14.99', per: 'once', size: 'Unlimited entries', detail: 'Every Plus look, and a song from Apple Music.' },
+];
+
+export const HomeFaq: Faq[] = [
+  CommonFaq[0]!,
+  CommonFaq[1]!,
+  CommonFaq[2]!,
+  { q: 'Does it work on Android?',
+    a: 'Everyone who adds to a Sendoff, and the person it is for, can use any phone or computer with a browser. Starting one takes the iPhone app.' },
+  CommonFaq[3]!,
+  { q: 'When can I start one?',
+    a: 'Sendoff is coming soon to the App Store for iPhone. Companies and schools can write to us about a team plan now.' },
+];
+
+/** Every page in the sitemap, in order. All of them are prerendered from src/site. */
+export const PublicPaths: string[] = [HomePage.path, TeamsPage.path, ...OccasionPages.map((p) => p.path), '/support', '/privacy'];
+
+/** The links in every page's footer. */
 export const FooterLinks = {
   occasions: OccasionPages.map((p) => ({ href: p.path, label: p.label })),
   more: [

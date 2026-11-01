@@ -1,7 +1,8 @@
 // sendoffapp.com on Cloudflare: the built site served as static assets, with no Worker code.
-// Deploy with `npm run deploy`. public/_headers still applies. Paths that match no file get
-// index.html (the single-page app's router); there is deliberately no _redirects, because
-// Cloudflare applies its rules even to real files, so a catch-all would rewrite the scripts too.
+// Deploy with `npm run deploy`. public/_headers still applies. Public pages are files (/teams is
+// teams.html). Private links go to the app: public/_redirects rewrites /s/* to app.html, and only
+// that, because Cloudflare applies redirect rules even to real files. Anything else that matches no
+// file gets 404.html with a 404 status.
 {
   "name": "sendoffapp",
   "compatibility_date": "2026-10-31",
@@ -12,6 +13,6 @@
   "preview_urls": false,
   "assets": {
     "directory": "./dist",
-    "not_found_handling": "single-page-application"
+    "not_found_handling": "404-page"
   }
 }
