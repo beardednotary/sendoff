@@ -220,7 +220,7 @@ function occasionPage(p: OccasionPage, assets: Assets): string {
   const prompts = `<div class="prose"><p>Anyone stuck on where to start gets a few prompts, written for the occasion.</p></div>
     <ul class="prompts">${promptsFor(p.occasion).map((t) => `<li>${esc(t)}</li>`).join('')}</ul>`;
   const cost = `<div class="prose">
-    <p>Starting one and collecting up to 10 entries is free. When more people want in, the organizer pays once for that Sendoff: $8.99 for up to 100 entries, or $14.99 for no limit, every paid look and a song from Apple Music. Nobody who adds to it or opens it pays.</p>
+    <p>Starting one and collecting up to 10 entries is free. When more people want in, the organizer pays once for that Sendoff: $8.99 for up to 100 entries, or $14.99 for no limit, every Plus look and a song from Apple Music. Nobody who adds to it or opens it pays.</p>
     <p>Running these for a whole company or school? <a href="${TeamsPage.path}">Sendoff for teams</a> covers every one for a year.</p>
   </div>`;
 
