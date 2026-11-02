@@ -286,6 +286,14 @@ struct ContributeFlow: View {
     }
 }
 
+extension ContributeFlow {
+    /// Starts with something already written: the App Store screenshots (SendoffTests/StoreScreens).
+    init(slug: String, draft: ContributionDraft) {
+        self.init(slug: slug)
+        _draft = State(initialValue: draft)
+    }
+}
+
 /// Moves a picked video into a temp file we own.
 struct MovieFile: Transferable {
     let url: URL

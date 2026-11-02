@@ -555,6 +555,16 @@ final class MusicPlayer {
     }
 }
 
+extension RevealView {
+    /// Starts at a later stage with the entries already in hand, as the recipient sees it: the
+    /// App Store screenshots (SendoffTests/StoreScreens).
+    init(sendoff: Sendoff, contributions: [Contribution], at stage: Stage) {
+        self.init(sendoff: sendoff, contributions: contributions, preview: false)
+        _stage = State(initialValue: stage)
+        _opened = State(initialValue: stage != .sealed && stage != .waiting)
+    }
+}
+
 #Preview("Open") {
     RevealView(sendoff: MockStore.sampleSendoff,
                contributions: MockStore.sampleContributions(for: MockStore.sampleSendoff.id),
