@@ -2,5 +2,8 @@
 # The targets are /add and /app, not .html: Cloudflare would answer /app.html with a redirect to
 # /app, which would drop the /s/... path the app reads. The add-yours page, /s/{slug}, gets add.html,
 # the same app with the App Clip tag; the reveal and the QR card, one segment longer, get app.html.
+# The two rules must not overlap: Cloudflare keeps them as a map keyed by path, so a catch-all like
+# /s/* can come first and win in production even though `wrangler dev` honors the file's order.
 /s/:slug /add 200
-/s/* /app 200
+/s/:slug/ /add 200
+/s/:slug/:page /app 200
