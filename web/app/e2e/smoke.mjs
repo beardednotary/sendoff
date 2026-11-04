@@ -267,6 +267,11 @@ await step('private links get the app, kept out of search', async () => {
     if (!html.includes('id="app"') || !html.includes('<meta name="robots" content="noindex, nofollow">')) throw new Error(`${p} is not the app`);
     if (html.includes('rel="canonical"') || html.includes('application/ld+json')) throw new Error(`${p} carries public-page tags`);
   }
+  // The App Clip is offered where people add, never on the recipient's page or the QR card.
+  for (const [p, clip] of [['/s/maria-r?t=demo', true], ['/s/maria-r/open?k=demo', false], ['/s/jo-moves/qr?t=demo', false]]) {
+    const html = await (await fetch(base + p)).text();
+    if (html.includes('app-clip-bundle-id=com.dahvio.sendoff.Clip') !== clip) throw new Error(`${p}: App Clip tag ${clip ? 'missing' : 'present'}`);
+  }
   const lost = await (await fetch(`${base}/404.html`)).text();
   if (!lost.includes('Nothing here.') || !lost.includes('<meta name="robots" content="noindex">')) throw new Error('404 page');
 });
