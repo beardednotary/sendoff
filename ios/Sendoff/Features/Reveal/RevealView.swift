@@ -1,6 +1,7 @@
 import SwiftUI
 import AVFoundation
 import MusicKit
+import StoreKit
 
 /// Loads a Sendoff from the recipient's link (slug + key) and shows the reveal. The entries
 /// arrive only when the seal is broken and the server agrees it is due.
@@ -51,6 +52,7 @@ struct RevealView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.openURL) private var openURL
+    @Environment(\.requestReview) private var requestReview
     var sendoff: Sendoff
     var contributions: [Contribution]
     var preview: Bool
@@ -81,6 +83,8 @@ struct RevealView: View {
     private var hasPhoto: Bool { sendoff.recipientPhotoURL != nil }
     private var entries: [Contribution] { loaded ?? contributions }
     private var peopleCount: Int { loaded?.count ?? sendoff.contributorCount ?? contributions.count }
+    /// "1 person", "6 people".
+    private var people: String { peopleCount == 1 ? "1 person" : "\(peopleCount) people" }
 
     var body: some View {
         ZStack {
@@ -110,6 +114,10 @@ struct RevealView: View {
             player.stop()
         }
         .sensoryFeedback(.impact(weight: .heavy), trigger: opened)
+        // The recipient at the end of their own Sendoff, never the organizer's preview (ReviewPrompt).
+        .task(id: stage) {
+            if stage == .kept, !preview { await ReviewPrompt.ask(about: sendoff.id) { requestReview() } }
+        }
         .task {
             // A linked song is credited to Apple Music wherever it is named.
             if let song = sendoff.song { trackTitle = "\(song.line) \u{00B7} Apple Music"; return }
@@ -181,7 +189,7 @@ struct RevealView: View {
                     .foregroundStyle(ink)
                     .multilineTextAlignment(.center)
                     .padding(.top, 40)
-                Text([sendoff.fromLine, peopleCount == 0 ? nil : "\(peopleCount) people"].compactMap { $0 }.joined(separator: " · "))
+                Text([sendoff.fromLine, peopleCount == 0 ? nil : people].compactMap { $0 }.joined(separator: " · "))
                     .font(Typeface.body).foregroundStyle(ink.opacity(0.8))
                     .multilineTextAlignment(.center)
                     .padding(.top, 10)
@@ -229,7 +237,7 @@ struct RevealView: View {
                     .font(Typeface.display(40)).displayTracking(40).foregroundStyle(ink)
                     .padding(.top, 32)
                 if let d = sendoff.opensAt {
-                    Text("This opens \(d.formatted(.dateTime.weekday(.wide).month(.wide).day())). \(peopleCount) people are waiting for you.")
+                    Text("This opens \(d.formatted(.dateTime.weekday(.wide).month(.wide).day())). \(people) \(peopleCount == 1 ? "is" : "are") waiting for you.")
                         .font(Typeface.body).foregroundStyle(ink.opacity(0.8))
                         .multilineTextAlignment(.center)
                         .padding(.top, 12)
@@ -344,7 +352,7 @@ struct RevealView: View {
             Text("Kept for you.")
                 .font(Typeface.display(48)).displayTracking(48).foregroundStyle(theme.inkColor)
                 .padding(.top, 28)
-            Text("\(peopleCount) people wrote to you. This stays here as long as you want it.")
+            Text("\(people) wrote to you. This stays here as long as you want it.")
                 .font(Typeface.body).foregroundStyle(theme.mutedInkColor)
                 .padding(.top, 12)
             Spacer()

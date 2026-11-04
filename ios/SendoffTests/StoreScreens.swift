@@ -32,6 +32,8 @@ final class StoreScreens: XCTestCase {
         let purchases = PurchaseManager(store: store)
         let maria = MockStore.sampleSendoff, jo = MockStore.sampleCollecting
         let entries = MockStore.sampleContributions(for: maria.id)
+        // The Kept shot is the recipient's last page, where the app would ask for a rating.
+        ReviewPrompt.markAsked(maria.id)
         let paperInk = ThemeCatalog.theme(.letterpress).inkColor
         let eveningInk = ThemeCatalog.theme(.midnightToast).inkColor
         var note = ContributionDraft()
