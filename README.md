@@ -95,7 +95,9 @@ webhook), and writes the URL and anon key into `ios/Config/Local.xcconfig` and
 
 Stock music: put the four licensed tracks in `supabase/stock-music/` (gitignored) named by track
 id, `warm_piano.m4a`, `bright_strings.m4a`, `reflective_guitar.m4a`, `triumphant_brass.m4a`, and
-run the script again; it uploads them to the public `stock-music` bucket.
+run the script again; it uploads them to the public `stock-music` bucket. They are Creative Commons
+Attribution tracks (Scott Buckley and Jason Shaw); migration 0008 names and credits them, and the
+full credits are on the support page (web/app/src/site/info.ts).
 
 Apple Music (Plus): turn on **MusicKit** for the `com.dahvio.sendoff` App ID. For the 30-second
 previews the website and non-subscribers hear, create a Media ID with MusicKit and a key with
