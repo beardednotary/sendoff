@@ -399,9 +399,9 @@ extension MockStore {
     }
 
     static let sampleTracks: [MusicTrack] = [
-        MusicTrack(id: "warm_piano", title: "Last Light", artist: "Stock", durationSeconds: 182, storagePath: "stock-music/warm_piano.m4a", appleMusicID: nil, premium: false, mood: "warm"),
-        MusicTrack(id: "bright_strings", title: "Open Windows", artist: "Stock", durationSeconds: 164, storagePath: "stock-music/bright_strings.m4a", appleMusicID: nil, premium: false, mood: "bright"),
-        MusicTrack(id: "reflective_guitar", title: "Long Hallway", artist: "Stock", durationSeconds: 201, storagePath: "stock-music/reflective_guitar.m4a", appleMusicID: nil, premium: false, mood: "reflective"),
-        MusicTrack(id: "triumphant_brass", title: "Final Whistle", artist: "Stock", durationSeconds: 158, storagePath: "stock-music/triumphant_brass.m4a", appleMusicID: nil, premium: false, mood: "triumphant"),
+        MusicTrack(id: "warm_piano", title: "Home Was You · Scott Buckley", artist: "Scott Buckley", durationSeconds: 269, storagePath: "stock-music/warm_piano.m4a", appleMusicID: nil, premium: false, mood: "warm"),
+        MusicTrack(id: "bright_strings", title: "Simplicity · Scott Buckley", artist: "Scott Buckley", durationSeconds: 185, storagePath: "stock-music/bright_strings.m4a", appleMusicID: nil, premium: false, mood: "bright"),
+        MusicTrack(id: "reflective_guitar", title: "Acoustic Meditation · Jason Shaw", artist: "Jason Shaw", durationSeconds: 195, storagePath: "stock-music/reflective_guitar.m4a", appleMusicID: nil, premium: false, mood: "reflective"),
+        MusicTrack(id: "triumphant_brass", title: "Victor Lux · Scott Buckley", artist: "Scott Buckley", durationSeconds: 202, storagePath: "stock-music/triumphant_brass.m4a", appleMusicID: nil, premium: false, mood: "triumphant"),
     ]
 }

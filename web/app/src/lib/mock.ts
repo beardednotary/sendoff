@@ -72,10 +72,10 @@ const MARIA_ENTRIES: Contribution[] = [
 ];
 
 const TRACKS: MusicTrack[] = [
-  { id: 'warm_piano', title: 'Last Light', artist: 'Stock', durationSeconds: 182, url: null, mood: 'warm' },
-  { id: 'bright_strings', title: 'Open Windows', artist: 'Stock', durationSeconds: 164, url: null, mood: 'bright' },
-  { id: 'reflective_guitar', title: 'Long Hallway', artist: 'Stock', durationSeconds: 201, url: null, mood: 'reflective' },
-  { id: 'triumphant_brass', title: 'Final Whistle', artist: 'Stock', durationSeconds: 158, url: null, mood: 'triumphant' },
+  { id: 'warm_piano', title: 'Home Was You · Scott Buckley', artist: 'Scott Buckley', durationSeconds: 269, url: null, mood: 'warm' },
+  { id: 'bright_strings', title: 'Simplicity · Scott Buckley', artist: 'Scott Buckley', durationSeconds: 185, url: null, mood: 'bright' },
+  { id: 'reflective_guitar', title: 'Acoustic Meditation · Jason Shaw', artist: 'Jason Shaw', durationSeconds: 195, url: null, mood: 'reflective' },
+  { id: 'triumphant_brass', title: 'Victor Lux · Scott Buckley', artist: 'Scott Buckley', durationSeconds: 202, url: null, mood: 'triumphant' },
 ];
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
