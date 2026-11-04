@@ -1,10 +1,12 @@
 import SwiftUI
 import PhotosUI
+import StoreKit
 
 /// The organizer tends a Sendoff: share, watch entries arrive, review, reorder, seal, open.
 struct SendoffDetailView: View {
     @Environment(\.store) private var store
     @Environment(\.theme) private var theme
+    @Environment(\.requestReview) private var requestReview
     @Environment(PurchaseManager.self) private var purchases
     var sendoffID: UUID
 
@@ -104,6 +106,8 @@ struct SendoffDetailView: View {
                 }
             }
             .task { await load() }
+            // Coming back to one that has been opened: the moment to ask for a rating (ReviewPrompt).
+            .task { if s.state == .open { await ReviewPrompt.ask(about: s.id) { requestReview() } } }
             .refreshable { await load() }
         } else {
             ZStack { Paper(); ProgressView().tint(theme.faintInkColor) }
