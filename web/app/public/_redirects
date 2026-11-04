@@ -1,4 +1,6 @@
 # Cloudflare (web/app/wrangler.jsonc). Every private link is the app; nothing else is rewritten.
-# The target is /app, not /app.html: Cloudflare would answer /app.html with a redirect to /app,
-# which would drop the /s/... path the app reads.
+# The targets are /add and /app, not .html: Cloudflare would answer /app.html with a redirect to
+# /app, which would drop the /s/... path the app reads. The add-yours page, /s/{slug}, gets add.html,
+# the same app with the App Clip tag; the reveal and the QR card, one segment longer, get app.html.
+/s/:slug /add 200
 /s/* /app 200

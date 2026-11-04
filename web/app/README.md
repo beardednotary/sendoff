@@ -20,7 +20,9 @@ data, or an in-memory mock when no keys are configured.
 Cloudflare, `public/_redirects` rewrites `/s/*` to it (to `/app`, not `/app.html`, which Cloudflare
 would answer with a redirect that loses the path); in `npm run dev` and `vite preview` the plugin in
 `vite.config.ts` does the same. It carries `noindex` and `no-referrer` itself, as well as from
-`public/_headers`.
+`public/_headers`. The add-yours page, `/s/{slug}`, gets `add.html` instead, which the build writes
+as `app.html` plus Apple's App Clip tag (`apple-itunes-app` with `app-clip-bundle-id`), so iPhones
+offer the App Clip there and in Messages and QR codes for that link, but not on the reveal.
 
 **The public pages** (the homepage, `/teams`, the occasions, `/privacy`, `/support`, the 404) are
 prerendered, so they reach search engines and link previews as complete HTML with no script. The
