@@ -7,7 +7,7 @@ struct SendoffApp: App {
     @State private var purchases: PurchaseManager
 
     init() {
-        let store: any SendoffStore = SupabaseStore.fromInfoPlist() ?? MockStore()
+        let store: any SendoffStore = AppStoreFactory.make()
         _store = State(initialValue: store)
         _purchases = State(initialValue: PurchaseManager(store: store))
     }

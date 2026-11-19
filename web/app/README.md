@@ -34,8 +34,8 @@ file gets the 404 with a 404 status. In `npm run dev` the plugin renders them on
 edits show on reload. Every page carries its own title, description, canonical URL, Open Graph
 tags and JSON-LD (Organization, MobileApplication, and FAQPage where it has questions).
 
-- **App Store link:** set `Site.appStoreUrl` and `Site.appStoreId` in `content.ts` when the app is
-  live; every page then links to it and Safari shows its banner.
+- **App Store link:** `Site.appStoreUrl` and `Site.appStoreId` in `content.ts` point to the live
+  listing; the download CTAs link to it and public pages show Safari's Smart App Banner.
 - **Team plan checkout:** give a tier a `checkout` URL (a Stripe Payment Link or Checkout session
   URL) in `Tiers`, and its button buys the plan instead of opening an email.
 - **Prices** are in `PersonalPrices`, `PlanTeasers` and `Tiers`, and in the support page's text;

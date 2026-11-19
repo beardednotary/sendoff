@@ -11,10 +11,9 @@ export const Site = {
   email: 'support@sendoffapp.com',
   /** The name in App Store Connect. */
   appName: 'Sendoff - Group Memory Book',
-  /** The App Store page and its numeric id (6770213680), once the app is live. Until then the pages
-   *  say "Coming soon to the App Store"; with them set, they link to it and Safari shows its banner. */
-  appStoreUrl: null as string | null,
-  appStoreId: null as string | null,
+  /** The live App Store listing, used by download links and Safari's Smart App Banner. */
+  appStoreUrl: 'https://apps.apple.com/us/app/sendoff-group-memory-book/id6770213680',
+  appStoreId: '6770213680',
 };
 
 export interface Faq { q: string; a: string }
@@ -325,7 +324,7 @@ export const HomeFaq: Faq[] = [
     a: 'Everyone who adds to a Sendoff, and the person it is for, can use any phone or computer with a browser. Starting one takes the iPhone app.' },
   CommonFaq[3]!,
   { q: 'When can I start one?',
-    a: 'Sendoff is coming soon to the App Store for iPhone. Companies and schools can write to us about a team plan now.' },
+    a: 'You can start one now. Download Sendoff from the App Store for iPhone. Companies and schools can write to us about a team plan.' },
 ];
 
 /** Every page in the sitemap, in order. All of them are prerendered from src/site. */

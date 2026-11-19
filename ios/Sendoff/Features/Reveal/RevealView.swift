@@ -193,6 +193,13 @@ struct RevealView: View {
                     .font(Typeface.body).foregroundStyle(ink.opacity(0.8))
                     .multilineTextAlignment(.center)
                     .padding(.top, 10)
+                if canOpen && peopleCount > 0 {
+                    Text("These were written just for you, and some may play out loud. You might want to open it somewhere quiet.")
+                        .font(Typeface.caption).foregroundStyle(ink.opacity(0.8))
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.top, 28)
+                }
                 Spacer()
                 Text(openError ?? (holding ? "Keep holding" : canOpen ? "Press and hold the seal" : sendoff.statusLine))
                     .font(Typeface.body).foregroundStyle(ink.opacity(0.85))

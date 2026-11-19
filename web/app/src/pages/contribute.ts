@@ -42,7 +42,7 @@ function header(s: PublicSendoff): HTMLElement {
   return h('header', { class: 'stack', style: 'gap:0' },
     h('div', { style: 'display:flex; justify-content:center; padding:6px 0 18px' }, seal(initialOf(s.recipientName), 40)),
     h('p', { class: 'eyebrow' }, `For ${s.recipientName} · ${occasionTitle(s.occasion)}`),
-    h('h1', { class: 'display', style: 'margin-top:10px' }, 'Write something', h('br'), `only ${first} will read.`),
+    h('h1', { class: 'display', style: 'margin-top:10px' }, 'Write something', h('br'), `just for ${first}.`),
     h('p', { class: 'caption privacy', style: 'margin-top:12px' }, svg(Icons.lock),
       h('span', {}, `Only ${first} and ${s.organizerName} will see this. Nobody else who adds can read it.${s.closesAt ? ` Add yours by ${longDate(s.closesAt)}.` : ''}`)),
   );

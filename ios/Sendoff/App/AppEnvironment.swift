@@ -64,3 +64,18 @@ extension AppRouter.Destination: Identifiable {
         }
     }
 }
+
+// MARK: - Which store
+
+enum AppStoreFactory {
+    /// Debug builds without keys run on MockStore's demo data. A Release build never does: the
+    /// build itself refuses placeholder keys (project.yml), and this stops it at launch too.
+    static func make() -> any SendoffStore {
+        if let real = SupabaseStore.fromInfoPlist() { return real }
+        #if DEBUG
+        return MockStore()
+        #else
+        fatalError("Release build without Supabase keys. Fill in ios/Config/Local.xcconfig and archive again.")
+        #endif
+    }
+}

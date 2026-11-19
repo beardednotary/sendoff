@@ -97,7 +97,7 @@ struct ContributeFlow: View {
     private func header(_ s: Sendoff, _ theme: SendoffTheme) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Eyebrow(text: "For \(s.recipientName) · \(s.occasion.title)")
-            Text("Write something\nonly \(s.recipientFirstName) will read.")
+            Text("Write something\njust for \(s.recipientFirstName).")
                 .font(Typeface.display(40)).displayTracking(40)
                 .foregroundStyle(theme.inkColor)
                 .fixedSize(horizontal: false, vertical: true)
