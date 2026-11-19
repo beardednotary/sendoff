@@ -33,6 +33,23 @@ targets:
       - package: Supabase
         product: Supabase
       - target: SendoffClip
+    preBuildScripts:
+      - name: Refuse a release build without real keys
+        basedOnDependencyAnalysis: false
+        script: |
+          # A Release build (archive) must talk to the real backend. Without these the app would
+          # fall back to MockStore and ship demo data, so stop the build instead.
+          [ "$CONFIGURATION" = "Release" ] || exit 0
+          fail=0
+          check() {
+            case "$2" in
+              ""|*your-project*|*your-anon-key*) echo "error: $1 is missing or still the placeholder in ios/Config/Local.xcconfig"; fail=1 ;;
+            esac
+          }
+          check SUPABASE_URL "$SUPABASE_URL"
+          check SUPABASE_ANON_KEY "$SUPABASE_ANON_KEY"
+            check MUSIC_BASE_URL "$MUSIC_BASE_URL"
+          exit $fail
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.dahvio.sendoff
@@ -92,6 +109,22 @@ targets:
     dependencies:
       - package: Supabase
         product: Supabase
+    preBuildScripts:
+      - name: Refuse a release build without real keys
+        basedOnDependencyAnalysis: false
+        script: |
+          # A Release build (archive) must talk to the real backend. Without these the app would
+          # fall back to MockStore and ship demo data, so stop the build instead.
+          [ "$CONFIGURATION" = "Release" ] || exit 0
+          fail=0
+          check() {
+            case "$2" in
+              ""|*your-project*|*your-anon-key*) echo "error: $1 is missing or still the placeholder in ios/Config/Local.xcconfig"; fail=1 ;;
+            esac
+          }
+          check SUPABASE_URL "$SUPABASE_URL"
+          check SUPABASE_ANON_KEY "$SUPABASE_ANON_KEY"
+          exit $fail
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.dahvio.sendoff.Clip

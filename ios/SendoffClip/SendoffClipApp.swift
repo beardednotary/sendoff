@@ -8,7 +8,7 @@ import SwiftUI
 @main
 struct SendoffClipApp: App {
     @State private var router = AppRouter()
-    @State private var store: any SendoffStore = SupabaseStore.fromInfoPlist() ?? MockStore()
+    @State private var store: any SendoffStore = AppStoreFactory.make()
 
     var body: some Scene {
         WindowGroup {
