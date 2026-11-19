@@ -13,6 +13,19 @@ change both together.
 | Categories | Lifestyle, Social Networking |
 | Privacy policy | https://sendoffapp.com/privacy |
 
+## Version 1.0.1
+
+Build 3. Keywords, description and screenshots carry over from 1.0 unchanged.
+
+**What's New (4000).**
+
+```
+- Your Sendoff now credits the composer of its music, right next to the track's name.
+- Before the seal opens, a short note says the entries were written just for them, and that some may play out loud, so they can find somewhere quiet.
+- Fixed "1 people" on the reveal. It now says "1 person".
+- Small wording fixes when you add to a Sendoff.
+```
+
 ## Version 1.0
 
 **Keywords (100).** Comma-separated, no spaces. Words already in the name or subtitle are left out,
