@@ -241,6 +241,8 @@ class Reveal {
         mark.setAttribute('aria-label', `Open the Sendoff for ${s.recipientName}`);
         hint.textContent = 'Press and hold the seal';
         window.clearInterval(this.countdownTimer);
+        if (s.contributorCount > 0) under.appendChild(h('p', { class: 'caption', style: 'margin-top:28px; max-width:32ch; color:inherit; opacity:.8' },
+          'These were written just for you, and some may play out loud. You might want to open it somewhere quiet.'));
       } else if (s.reveal === 'on_date' && s.opensAt) {
         mark.setAttribute('aria-label', `Sealed until ${longDate(s.opensAt)}`);
         hint.textContent = `Sealed until ${longDate(s.opensAt)}`;

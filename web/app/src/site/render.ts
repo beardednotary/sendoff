@@ -156,11 +156,9 @@ function footer(): string {
 
 // Pieces --------------------------------------------------------------------------------------
 
-/** The App Store call to action, or "coming soon" until the app is live. */
+/** The App Store call to action shared by the homepage and occasion pages. */
 function getTheApp(): string {
-  const action = Site.appStoreUrl
-    ? `<p><a class="btn primary" href="${esc(Site.appStoreUrl)}">Get Sendoff on the App Store</a></p>`
-    : '<p class="ui">Coming soon to the App Store.</p>';
+  const action = `<p><a class="btn primary" href="${esc(Site.appStoreUrl)}">Get Sendoff on the App Store</a></p>`;
   return `<div class="cta">${action}<p class="caption">Organizers start one in the iPhone app. Everyone else just needs the link.</p></div>`;
 }
 
@@ -254,7 +252,7 @@ ${header(HomePage.path)}
       <a class="btn primary" href="#how">See how it works</a>
       <a class="btn" href="${TeamsPage.path}">For teams</a>
     </div>
-    <p class="caption">${Site.appStoreUrl ? `<a href="${esc(Site.appStoreUrl)}">Get Sendoff on the App Store</a>.` : 'Coming soon to the App Store.'} Organizers start one in the iPhone app; everyone else just needs the link.</p>
+    <p class="caption"><a href="${esc(Site.appStoreUrl)}">Get Sendoff on the App Store</a>. Organizers start one in the iPhone app; everyone else just needs the link.</p>
   </div>
   ${trio}
 </section>
